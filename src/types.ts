@@ -30,6 +30,7 @@ export interface WebClipperSettings {
 	templates: ClipTemplate[];
 	defaultTemplateId: string;
 	showNotification: boolean;
+	extendShareMenu: boolean;
 }
 
 export const DEFAULT_TEMPLATE: ClipTemplate = {
@@ -54,6 +55,7 @@ export const DEFAULT_SETTINGS: WebClipperSettings = {
 	templates: [DEFAULT_TEMPLATE],
 	defaultTemplateId: 'default',
 	showNotification: true,
+	extendShareMenu: true,
 };
 
 export const TEMPLATE_VARIABLES = [

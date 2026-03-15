@@ -52,6 +52,18 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 			});
 
+		// Extend share menu (mobile)
+		new Setting(containerEl)
+			.setName('Extend share menu')
+			.setDesc('Add a "Clip to new note" button to the mobile share sheet. Requires restart.')
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.extendShareMenu);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.extendShareMenu = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		// Show notification
 		new Setting(containerEl)
 			.setName('Show notification')

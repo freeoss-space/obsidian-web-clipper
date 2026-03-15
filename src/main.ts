@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin } from 'obsidian';
+import { App, Menu, MenuItem, Modal, Notice, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, WebClipperSettings } from './types';
 import { fetchAndParsePage } from './parser';
 import { ClipModal } from './clip-modal';
@@ -10,8 +10,51 @@ export default class WebClipperPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// Register the obsidian:// protocol handler for share intents
-		// This handles URLs shared via: obsidian://web-clipper?url=...
+		// === Mobile Share Sheet Integration ===
+		// Hook into Obsidian's internal 'receive-text-menu' event.
+		// This fires when the user shares text/URL to Obsidian from another app
+		// on mobile (iOS/Android share sheet). Obsidian presents a menu, and we
+		// add a "Web Clipper" button to it.
+		// Note: This is an undocumented internal event (hence @ts-ignore).
+		if (this.settings.extendShareMenu) {
+			this.registerEvent(
+				// @ts-ignore — internal Obsidian mobile event
+				this.app.workspace.on('receive-text-menu', (menu: Menu, shareText: string) => {
+					menu.addItem((item: MenuItem) => {
+						item.setTitle('Clip to new note');
+						item.setIcon('scissors');
+						item.onClick(async () => {
+							const url = extractUrl(shareText);
+							if (url) {
+								await this.clipUrl(url);
+							} else {
+								new Notice('Web Clipper: No URL found in shared content');
+							}
+						});
+					});
+				}),
+			);
+		}
+
+		// Hook into Obsidian's 'url-menu' event for URL context menus
+		// (right-click/long-press on a URL anywhere in Obsidian)
+		this.registerEvent(
+			// @ts-ignore — internal Obsidian event
+			this.app.workspace.on('url-menu', (menu: Menu, url: string) => {
+				if (url && /^https?:\/\//i.test(url)) {
+					menu.addItem((item: MenuItem) => {
+						item.setTitle('Clip this URL');
+						item.setIcon('scissors');
+						item.onClick(async () => {
+							await this.clipUrl(url);
+						});
+					});
+				}
+			}),
+		);
+
+		// === Protocol Handlers (alternative entry points) ===
+		// obsidian://web-clipper?url=...
 		this.registerObsidianProtocolHandler('web-clipper', async (params) => {
 			const url = params.url;
 			if (!url) {
@@ -21,11 +64,8 @@ export default class WebClipperPlugin extends Plugin {
 			await this.clipUrl(url);
 		});
 
-		// Also handle the share-target action for Android/iOS share sheets
-		// When Obsidian is registered as a share target, it receives URLs
-		// via the obsidian://clip protocol
+		// obsidian://clip?url=... (or ?text=...)
 		this.registerObsidianProtocolHandler('clip', async (params) => {
-			// Support multiple parameter names that share intents may use
 			const url = params.url || params.text || params.title || '';
 			const extracted = extractUrl(url);
 			if (!extracted) {
@@ -35,6 +75,7 @@ export default class WebClipperPlugin extends Plugin {
 			await this.clipUrl(extracted);
 		});
 
+		// === Commands ===
 		// Add command for clipping current clipboard URL
 		this.addCommand({
 			id: 'clip-url-from-clipboard',
