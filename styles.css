@@ -16,12 +16,12 @@
 	font-size: var(--font-ui-smaller);
 	word-break: break-all;
 	margin-bottom: var(--size-4-4);
-	font-family: var(--font-monospace);
+	font-family: var(--font-monospace-theme);
 }
 
 .web-clipper-header {
 	margin-bottom: var(--size-4-4);
-	border-bottom: 1px solid var(--background-modifier-border);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
 	padding-bottom: var(--size-4-3);
 }
 
@@ -31,7 +31,7 @@
 	padding: var(--size-4-3);
 	border-radius: var(--radius-m);
 	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
+	border: var(--border-width) solid var(--background-modifier-border);
 }
 
 .web-clipper-og-preview img {
@@ -57,21 +57,9 @@
 	line-height: var(--line-height-tight);
 }
 
-/* Section headings within the modal */
-.web-clipper-section-heading {
-	font-size: var(--font-ui-small);
-	font-weight: var(--font-semibold);
-	color: var(--text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: var(--size-4-2);
-	padding-bottom: var(--size-4-1);
-	border-bottom: 1px solid var(--background-modifier-border);
-}
-
 /* Body textarea */
 .web-clipper-body .setting-item-control textarea {
-	font-family: var(--font-monospace);
+	font-family: var(--font-monospace-theme);
 	font-size: var(--font-ui-smaller);
 	resize: vertical;
 }
@@ -82,13 +70,13 @@
 	justify-content: flex-end;
 	gap: var(--size-4-2);
 	padding-top: var(--size-4-4);
-	border-top: 1px solid var(--background-modifier-border);
+	border-top: var(--border-width) solid var(--background-modifier-border);
 	margin-top: var(--size-4-4);
 }
 
 /* Template settings cards */
 .web-clipper-template-settings {
-	border: 1px solid var(--background-modifier-border);
+	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	padding: var(--size-4-4);
 	margin-bottom: var(--size-4-4);
@@ -97,7 +85,7 @@
 
 /* Settings tab textareas */
 .web-clipper-template-settings .setting-item-control textarea {
-	font-family: var(--font-monospace);
+	font-family: var(--font-monospace-theme);
 	font-size: var(--font-ui-smaller);
 }
 
