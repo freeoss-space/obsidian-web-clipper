@@ -8,6 +8,7 @@ import {
 	DropdownComponent,
 	TextComponent,
 	TextAreaComponent,
+	ButtonComponent,
 } from 'obsidian';
 import { ClipTemplate, ClippedPage, WebClipperSettings } from './types';
 import { applyTemplate, generateNoteContent, findMatchingTemplate } from './template';
@@ -53,11 +54,14 @@ export class ClipModal extends Modal {
 	}
 
 	onOpen() {
-		const { contentEl } = this;
+		const { contentEl, titleEl } = this;
 		contentEl.empty();
 		contentEl.addClass('web-clipper-modal');
 
-		// Header with page info
+		// Use Obsidian's built-in modal title
+		titleEl.setText('Web Clipper');
+
+		// Header with URL
 		this.renderHeader(contentEl);
 
 		// Template selector
@@ -75,13 +79,12 @@ export class ClipModal extends Modal {
 		// Body content
 		this.renderBody(contentEl);
 
-		// Save button
+		// Save/Cancel buttons
 		this.renderActions(contentEl);
 	}
 
 	private renderHeader(container: HTMLElement) {
 		const header = container.createDiv({ cls: 'web-clipper-header' });
-		header.createEl('h2', { text: 'Web Clipper' });
 		header.createEl('p', {
 			text: this.page.url,
 			cls: 'web-clipper-url',
@@ -124,7 +127,7 @@ export class ClipModal extends Modal {
 					this.folder = value;
 				});
 
-				// Add folder suggest
+				// Add folder suggest via datalist
 				const folders = this.getFolderSuggestions();
 				if (folders.length > 0) {
 					text.inputEl.setAttribute('list', 'web-clipper-folders');
@@ -145,27 +148,28 @@ export class ClipModal extends Modal {
 				text.onChange((value: string) => {
 					this.filename = value;
 				});
-				text.inputEl.style.width = '100%';
 			});
 	}
 
 	private renderOgPreview(container: HTMLElement) {
-		if (!this.page.ogImage) return;
+		if (!this.page.ogImage && !this.page.title && !this.page.description) return;
 
 		const preview = container.createDiv({ cls: 'web-clipper-og-preview' });
-		const img = preview.createEl('img', {
-			attr: {
-				src: this.page.ogImage,
-				alt: this.page.title || 'Preview',
-			},
-		});
-		img.style.maxWidth = '100%';
-		img.style.maxHeight = '200px';
-		img.style.borderRadius = '8px';
-		img.style.marginBottom = '12px';
+
+		if (this.page.ogImage) {
+			preview.createEl('img', {
+				attr: {
+					src: this.page.ogImage,
+					alt: this.page.title || 'Preview',
+				},
+			});
+		}
 
 		if (this.page.title) {
-			preview.createEl('h4', { text: this.page.title });
+			preview.createEl('div', {
+				text: this.page.title,
+				cls: 'web-clipper-og-title',
+			});
 		}
 		if (this.page.description) {
 			preview.createEl('p', {
@@ -176,8 +180,8 @@ export class ClipModal extends Modal {
 	}
 
 	private renderProperties(container: HTMLElement) {
-		const section = container.createDiv({ cls: 'web-clipper-properties' });
-		section.createEl('h4', { text: 'Properties' });
+		const section = container.createDiv();
+		new Setting(section).setName('Properties').setHeading();
 		this.propertiesContainer = section.createDiv();
 		this.renderPropertyFields();
 	}
@@ -195,14 +199,13 @@ export class ClipModal extends Modal {
 					text.onChange((newValue: string) => {
 						this.frontmatter[key] = newValue;
 					});
-					text.inputEl.style.width = '100%';
 				});
 		}
 	}
 
 	private renderBody(container: HTMLElement) {
 		const section = container.createDiv({ cls: 'web-clipper-body' });
-		section.createEl('h4', { text: 'Content' });
+		new Setting(section).setName('Content').setHeading();
 
 		new Setting(section)
 			.addTextArea((textarea: TextAreaComponent) => {
@@ -211,24 +214,23 @@ export class ClipModal extends Modal {
 				textarea.onChange((value: string) => {
 					this.bodyContent = value;
 				});
-				textarea.inputEl.style.width = '100%';
-				textarea.inputEl.style.minHeight = '300px';
-				textarea.inputEl.style.fontFamily = 'monospace';
-				textarea.inputEl.style.fontSize = '12px';
+				textarea.inputEl.rows = 15;
 			});
 	}
 
 	private renderActions(container: HTMLElement) {
-		const actions = container.createDiv({ cls: 'web-clipper-actions' });
+		const btnContainer = container.createDiv({ cls: 'modal-button-container' });
 
-		const saveBtn = actions.createEl('button', {
-			text: 'Save Note',
-			cls: 'mod-cta',
-		});
-		saveBtn.addEventListener('click', () => this.saveNote());
-
-		const cancelBtn = actions.createEl('button', { text: 'Cancel' });
-		cancelBtn.addEventListener('click', () => this.close());
+		new Setting(btnContainer)
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Cancel');
+				btn.onClick(() => this.close());
+			})
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Save Note');
+				btn.setCta();
+				btn.onClick(() => this.saveNote());
+			});
 	}
 
 	private refreshFields() {

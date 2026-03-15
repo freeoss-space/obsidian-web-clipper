@@ -1,4 +1,4 @@
-import { App, Menu, MenuItem, Modal, Notice, Plugin } from 'obsidian';
+import { App, Menu, MenuItem, Modal, Notice, Plugin, Setting } from 'obsidian';
 import { DEFAULT_SETTINGS, WebClipperSettings } from './types';
 import { fetchAndParsePage } from './parser';
 import { ClipModal } from './clip-modal';
@@ -173,6 +173,7 @@ function extractUrl(text: string): string | null {
 
 class ManualUrlModal extends Modal {
 	private onSubmit: (url: string) => void;
+	private urlValue = '';
 
 	constructor(app: App, onSubmit: (url: string) => void) {
 		super(app);
@@ -180,42 +181,41 @@ class ManualUrlModal extends Modal {
 	}
 
 	onOpen() {
-		const { contentEl } = this;
-		contentEl.createEl('h3', { text: 'Enter URL to clip' });
+		const { contentEl, titleEl } = this;
+		titleEl.setText('Clip URL');
 
-		const input = contentEl.createEl('input', {
-			type: 'text',
-			placeholder: 'https://example.com/article',
-		});
-		input.style.width = '100%';
-		input.style.padding = '8px';
-		input.style.marginBottom = '12px';
+		new Setting(contentEl)
+			.setName('URL')
+			.setDesc('Enter a URL to clip')
+			.addText((text) => {
+				text.setPlaceholder('https://example.com/article');
+				text.onChange((value: string) => {
+					this.urlValue = value;
+				});
+				text.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this.submit();
+					}
+				});
+				// Focus the input after the modal renders
+				setTimeout(() => text.inputEl.focus(), 10);
+			});
 
-		const btnContainer = contentEl.createDiv({ cls: 'web-clipper-actions' });
-		const submitBtn = btnContainer.createEl('button', {
-			text: 'Clip',
-			cls: 'mod-cta',
-		});
+		new Setting(contentEl)
+			.addButton((btn) => {
+				btn.setButtonText('Clip');
+				btn.setCta();
+				btn.onClick(() => this.submit());
+			});
+	}
 
-		submitBtn.addEventListener('click', () => {
-			const url = input.value.trim();
-			if (url) {
-				this.onSubmit(url);
-				this.close();
-			}
-		});
-
-		input.addEventListener('keydown', (e: KeyboardEvent) => {
-			if (e.key === 'Enter') {
-				const url = input.value.trim();
-				if (url) {
-					this.onSubmit(url);
-					this.close();
-				}
-			}
-		});
-
-		input.focus();
+	private submit() {
+		const url = this.urlValue.trim();
+		if (url) {
+			this.onSubmit(url);
+			this.close();
+		}
 	}
 
 	onClose() {

@@ -116,10 +116,6 @@ export class WebClipperSettingTab extends PluginSettingTab {
 	private renderTemplate(container: HTMLElement, index: number) {
 		const template = this.plugin.settings.templates[index];
 		const wrapper = container.createDiv({ cls: 'web-clipper-template-settings' });
-		wrapper.style.border = '1px solid var(--background-modifier-border)';
-		wrapper.style.borderRadius = '8px';
-		wrapper.style.padding = '16px';
-		wrapper.style.marginBottom = '16px';
 
 		// Template header with name and delete
 		const headerSetting = new Setting(wrapper)
@@ -189,8 +185,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 					template.urlPatterns = value.split('\n').filter(p => p.trim());
 					await this.plugin.saveSettings();
 				});
-				textarea.inputEl.style.width = '100%';
-				textarea.inputEl.style.minHeight = '60px';
+				textarea.inputEl.rows = 3;
 			});
 
 		// Properties
@@ -221,9 +216,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 					template.bodyTemplate = value;
 					await this.plugin.saveSettings();
 				});
-				textarea.inputEl.style.width = '100%';
-				textarea.inputEl.style.minHeight = '100px';
-				textarea.inputEl.style.fontFamily = 'monospace';
+				textarea.inputEl.rows = 5;
 			});
 	}
 
@@ -242,7 +235,6 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				prop.name = value;
 				await this.plugin.saveSettings();
 			});
-			text.inputEl.style.width = '120px';
 		});
 
 		setting.addText((text: TextComponent) => {
