@@ -1,0 +1,90 @@
+/* Web Clipper Modal Styles */
+
+.web-clipper-modal {
+	padding: 16px;
+}
+
+.web-clipper-modal h2 {
+	margin-top: 0;
+	margin-bottom: 4px;
+}
+
+.web-clipper-url {
+	color: var(--text-muted);
+	font-size: 12px;
+	word-break: break-all;
+	margin-bottom: 16px;
+}
+
+.web-clipper-header {
+	margin-bottom: 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 12px;
+}
+
+.web-clipper-og-preview {
+	margin-bottom: 16px;
+	padding: 12px;
+	border-radius: 8px;
+	background: var(--background-secondary);
+}
+
+.web-clipper-og-preview img {
+	display: block;
+	max-width: 100%;
+	max-height: 200px;
+	border-radius: 8px;
+	margin-bottom: 8px;
+	object-fit: cover;
+}
+
+.web-clipper-og-preview h4 {
+	margin: 0 0 4px 0;
+}
+
+.web-clipper-description {
+	color: var(--text-muted);
+	font-size: 13px;
+	margin: 0;
+}
+
+.web-clipper-properties {
+	margin-bottom: 16px;
+}
+
+.web-clipper-properties h4 {
+	margin-bottom: 8px;
+}
+
+.web-clipper-body {
+	margin-bottom: 16px;
+}
+
+.web-clipper-body h4 {
+	margin-bottom: 8px;
+}
+
+.web-clipper-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 16px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Template settings */
+.web-clipper-template-settings {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 16px;
+	margin-bottom: 16px;
+}
+
+/* Mobile adjustments */
+.is-mobile .web-clipper-modal {
+	padding: 12px;
+}
+
+.is-mobile .web-clipper-og-preview img {
+	max-height: 150px;
+}

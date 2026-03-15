@@ -1,0 +1,255 @@
+import {
+	App,
+	PluginSettingTab,
+	Setting,
+	TextComponent,
+	TextAreaComponent,
+	ButtonComponent,
+} from 'obsidian';
+import { ClipTemplate, TemplateProperty, WebClipperSettings, DEFAULT_TEMPLATE } from './types';
+import { generateTemplateId } from './template';
+import type WebClipperPlugin from './main';
+
+export class WebClipperSettingTab extends PluginSettingTab {
+	plugin: WebClipperPlugin;
+
+	constructor(app: App, plugin: WebClipperPlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+
+	display() {
+		const { containerEl } = this;
+		containerEl.empty();
+
+		containerEl.createEl('h2', { text: 'Web Clipper Settings' });
+
+		// Default folder
+		new Setting(containerEl)
+			.setName('Default folder')
+			.setDesc('Default folder for clipped notes when no template folder is set')
+			.addText((text: TextComponent) => {
+				text.setPlaceholder('Clippings');
+				text.setValue(this.plugin.settings.defaultFolder);
+				text.onChange(async (value: string) => {
+					this.plugin.settings.defaultFolder = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// Default template
+		new Setting(containerEl)
+			.setName('Default template')
+			.setDesc('Template used when no URL pattern matches')
+			.addDropdown((dropdown) => {
+				for (const t of this.plugin.settings.templates) {
+					dropdown.addOption(t.id, t.name);
+				}
+				dropdown.setValue(this.plugin.settings.defaultTemplateId);
+				dropdown.onChange(async (value: string) => {
+					this.plugin.settings.defaultTemplateId = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// Show notification
+		new Setting(containerEl)
+			.setName('Show notification')
+			.setDesc('Show a notification after saving a clip')
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.showNotification);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.showNotification = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// Templates section
+		containerEl.createEl('h3', { text: 'Templates' });
+
+		const templateDesc = containerEl.createEl('p', {
+			cls: 'setting-item-description',
+		});
+		templateDesc.innerHTML = `
+			Templates define how clipped pages are formatted. Use <code>{{variable}}</code> placeholders.<br>
+			Available variables: <code>{{title}}</code>, <code>{{url}}</code>, <code>{{author}}</code>,
+			<code>{{description}}</code>, <code>{{ogImage}}</code>, <code>{{siteName}}</code>,
+			<code>{{publishedDate}}</code>, <code>{{content}}</code>, <code>{{date}}</code>, <code>{{time}}</code>
+		`;
+
+		// Add template button
+		new Setting(containerEl)
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Add Template');
+				btn.setCta();
+				btn.onClick(() => {
+					const newTemplate: ClipTemplate = {
+						...DEFAULT_TEMPLATE,
+						id: generateTemplateId(),
+						name: 'New Template',
+						properties: DEFAULT_TEMPLATE.properties.map(p => ({ ...p })),
+					};
+					this.plugin.settings.templates.push(newTemplate);
+					this.plugin.saveSettings();
+					this.display();
+				});
+			});
+
+		// Render each template
+		for (let i = 0; i < this.plugin.settings.templates.length; i++) {
+			this.renderTemplate(containerEl, i);
+		}
+	}
+
+	private renderTemplate(container: HTMLElement, index: number) {
+		const template = this.plugin.settings.templates[index];
+		const wrapper = container.createDiv({ cls: 'web-clipper-template-settings' });
+		wrapper.style.border = '1px solid var(--background-modifier-border)';
+		wrapper.style.borderRadius = '8px';
+		wrapper.style.padding = '16px';
+		wrapper.style.marginBottom = '16px';
+
+		// Template header with name and delete
+		const headerSetting = new Setting(wrapper)
+			.setName(`Template: ${template.name}`)
+			.setHeading();
+
+		if (this.plugin.settings.templates.length > 1) {
+			headerSetting.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Delete');
+				btn.setWarning();
+				btn.onClick(async () => {
+					this.plugin.settings.templates.splice(index, 1);
+					if (this.plugin.settings.defaultTemplateId === template.id) {
+						this.plugin.settings.defaultTemplateId =
+							this.plugin.settings.templates[0]?.id || 'default';
+					}
+					await this.plugin.saveSettings();
+					this.display();
+				});
+			});
+		}
+
+		// Name
+		new Setting(wrapper)
+			.setName('Name')
+			.addText((text: TextComponent) => {
+				text.setValue(template.name);
+				text.onChange(async (value: string) => {
+					template.name = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// Folder
+		new Setting(wrapper)
+			.setName('Folder')
+			.setDesc('Leave empty to use the default folder')
+			.addText((text: TextComponent) => {
+				text.setPlaceholder(this.plugin.settings.defaultFolder);
+				text.setValue(template.folder);
+				text.onChange(async (value: string) => {
+					template.folder = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// Filename template
+		new Setting(wrapper)
+			.setName('Filename template')
+			.addText((text: TextComponent) => {
+				text.setPlaceholder('{{title}}');
+				text.setValue(template.filenameTemplate);
+				text.onChange(async (value: string) => {
+					template.filenameTemplate = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// URL patterns
+		new Setting(wrapper)
+			.setName('URL patterns')
+			.setDesc('Regex patterns (one per line). If a URL matches, this template is auto-selected.')
+			.addTextArea((textarea: TextAreaComponent) => {
+				textarea.setPlaceholder('https://github\\.com/.*\nhttps://medium\\.com/.*');
+				textarea.setValue(template.urlPatterns.join('\n'));
+				textarea.onChange(async (value: string) => {
+					template.urlPatterns = value.split('\n').filter(p => p.trim());
+					await this.plugin.saveSettings();
+				});
+				textarea.inputEl.style.width = '100%';
+				textarea.inputEl.style.minHeight = '60px';
+			});
+
+		// Properties
+		const propsHeading = new Setting(wrapper)
+			.setName('Properties (frontmatter)')
+			.setHeading();
+		propsHeading.addButton((btn: ButtonComponent) => {
+			btn.setButtonText('+ Add Property');
+			btn.onClick(async () => {
+				template.properties.push({ name: 'new_property', value: '' });
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		});
+
+		for (let j = 0; j < template.properties.length; j++) {
+			this.renderProperty(wrapper, template, j);
+		}
+
+		// Body template
+		new Setting(wrapper)
+			.setName('Body template')
+			.setDesc('Content below the frontmatter')
+			.addTextArea((textarea: TextAreaComponent) => {
+				textarea.setPlaceholder('{{content}}');
+				textarea.setValue(template.bodyTemplate);
+				textarea.onChange(async (value: string) => {
+					template.bodyTemplate = value;
+					await this.plugin.saveSettings();
+				});
+				textarea.inputEl.style.width = '100%';
+				textarea.inputEl.style.minHeight = '100px';
+				textarea.inputEl.style.fontFamily = 'monospace';
+			});
+	}
+
+	private renderProperty(
+		container: HTMLElement,
+		template: ClipTemplate,
+		propIndex: number
+	) {
+		const prop = template.properties[propIndex];
+		const setting = new Setting(container);
+
+		setting.addText((text: TextComponent) => {
+			text.setPlaceholder('property name');
+			text.setValue(prop.name);
+			text.onChange(async (value: string) => {
+				prop.name = value;
+				await this.plugin.saveSettings();
+			});
+			text.inputEl.style.width = '120px';
+		});
+
+		setting.addText((text: TextComponent) => {
+			text.setPlaceholder('{{variable}} or text');
+			text.setValue(prop.value);
+			text.onChange(async (value: string) => {
+				prop.value = value;
+				await this.plugin.saveSettings();
+			});
+		});
+
+		setting.addButton((btn: ButtonComponent) => {
+			btn.setIcon('trash');
+			btn.setTooltip('Remove property');
+			btn.onClick(async () => {
+				template.properties.splice(propIndex, 1);
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		});
+	}
+}
