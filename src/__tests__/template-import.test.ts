@@ -148,6 +148,57 @@ describe('importOwcTemplates', () => {
 		const json = JSON.stringify([{}]);
 		expect(() => importOwcTemplates(json)).toThrow('Invalid template');
 	});
+
+	it('imports templates from a full browser extension settings export', () => {
+		const json = JSON.stringify({
+			general_settings: { showMoreActionsButton: false },
+			template_abc123: {
+				id: 'abc123',
+				name: 'Article',
+				behavior: 'create',
+				noteNameFormat: '{{title}}',
+				path: 'Clips',
+				noteContentFormat: '{{content}}',
+				properties: [
+					{ id: '1', name: 'source', value: '{{url}}', type: 'text' },
+				],
+				triggers: [],
+				context: '',
+			},
+			template_def456: {
+				id: 'def456',
+				name: 'Bookmark',
+				behavior: 'create',
+				noteNameFormat: '{{title}}',
+				path: 'Bookmarks',
+				noteContentFormat: '',
+				properties: [],
+				triggers: [],
+				context: '',
+			},
+			template_list: ['def456', 'abc123'],
+			vaults: [],
+		});
+		const results = importOwcTemplates(json);
+		expect(results).toHaveLength(2);
+		// template_list ordering should be respected
+		expect(results[0].name).toBe('Bookmark');
+		expect(results[1].name).toBe('Article');
+	});
+
+	it('imports templates from export without template_list', () => {
+		const json = JSON.stringify({
+			general_settings: {},
+			template_xyz: {
+				name: 'Only Template',
+				noteContentFormat: '{{content}}',
+				properties: [],
+			},
+		});
+		const results = importOwcTemplates(json);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Only Template');
+	});
 });
 
 describe('isOwcTemplateJson', () => {
@@ -178,5 +229,14 @@ describe('isOwcTemplateJson', () => {
 
 	it('returns false for an array of non-template objects', () => {
 		expect(isOwcTemplateJson('[{"foo":"bar"}]')).toBe(false);
+	});
+
+	it('returns true for a full browser extension settings export', () => {
+		const json = JSON.stringify({
+			general_settings: {},
+			template_abc: { name: 'Test', noteContentFormat: '{{content}}' },
+			template_list: ['abc'],
+		});
+		expect(isOwcTemplateJson(json)).toBe(true);
 	});
 });

@@ -45,7 +45,38 @@ export function importOwcTemplates(json: string): ClipTemplate[] {
 		return data.map((item: OwcTemplate) => convertOwcTemplate(item));
 	}
 
+	// Handle full settings export: extract template_* entries
+	const templates = extractTemplatesFromExport(data);
+	if (templates.length > 0) {
+		return templates;
+	}
+
 	return [convertOwcTemplate(data as OwcTemplate)];
+}
+
+/**
+ * Extract templates from a full browser extension settings export.
+ * Templates are stored as top-level keys matching `template_<id>`.
+ */
+function extractTemplatesFromExport(data: Record<string, unknown>): ClipTemplate[] {
+	const templateKeys = Object.keys(data).filter(
+		k => k.startsWith('template_') && k !== 'template_list'
+	);
+	if (templateKeys.length === 0) {
+		return [];
+	}
+
+	// Use template_list ordering if available, falling back to key order
+	const templateList = Array.isArray(data['template_list'])
+		? (data['template_list'] as string[])
+		: [];
+	const orderedKeys = templateList.length > 0
+		? templateList
+			.map(id => `template_${id}`)
+			.filter(k => templateKeys.includes(k))
+		: templateKeys;
+
+	return orderedKeys.map(k => convertOwcTemplate(data[k] as OwcTemplate));
 }
 
 function convertOwcTemplate(data: OwcTemplate): ClipTemplate {
@@ -125,7 +156,16 @@ export function isOwcTemplateJson(text: string): boolean {
 		if (Array.isArray(data)) {
 			return data.length > 0 && isOwcObject(data[0]);
 		}
-		return isOwcObject(data);
+		if (isOwcObject(data)) {
+			return true;
+		}
+		// Recognize full settings export with template_* keys
+		if (typeof data === 'object' && data !== null) {
+			return Object.keys(data).some(
+				k => k.startsWith('template_') && k !== 'template_list'
+			);
+		}
+		return false;
 	} catch {
 		return false;
 	}
