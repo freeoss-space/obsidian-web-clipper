@@ -28,8 +28,27 @@ interface OwcProperty {
  * Strips OWC-specific filter syntax (e.g. `{{title|safe_name}}` → `{{title}}`).
  */
 export function importOwcTemplate(json: string): ClipTemplate {
-	const data = JSON.parse(json) as OwcTemplate;
+	return convertOwcTemplate(JSON.parse(json) as OwcTemplate);
+}
 
+/**
+ * Import one or more OWC templates from a JSON string.
+ * Accepts either a single template object or an array of templates.
+ */
+export function importOwcTemplates(json: string): ClipTemplate[] {
+	const data = JSON.parse(json);
+
+	if (Array.isArray(data)) {
+		if (data.length === 0) {
+			throw new Error('Invalid template: empty array');
+		}
+		return data.map((item: OwcTemplate) => convertOwcTemplate(item));
+	}
+
+	return [convertOwcTemplate(data as OwcTemplate)];
+}
+
+function convertOwcTemplate(data: OwcTemplate): ClipTemplate {
 	if (!data.name && !data.noteContentFormat && !data.properties) {
 		throw new Error('Invalid template: missing required fields (name, properties, or noteContentFormat)');
 	}
@@ -103,14 +122,21 @@ function escapeRegexSpecials(url: string): string {
 export function isOwcTemplateJson(text: string): boolean {
 	try {
 		const data = JSON.parse(text);
-		return (
-			typeof data === 'object' &&
-			data !== null &&
-			(typeof data.name === 'string' ||
-			 typeof data.noteContentFormat === 'string' ||
-			 Array.isArray(data.properties))
-		);
+		if (Array.isArray(data)) {
+			return data.length > 0 && isOwcObject(data[0]);
+		}
+		return isOwcObject(data);
 	} catch {
 		return false;
 	}
+}
+
+function isOwcObject(data: unknown): boolean {
+	return (
+		typeof data === 'object' &&
+		data !== null &&
+		(typeof (data as OwcTemplate).name === 'string' ||
+		 typeof (data as OwcTemplate).noteContentFormat === 'string' ||
+		 Array.isArray((data as OwcTemplate).properties))
+	);
 }
