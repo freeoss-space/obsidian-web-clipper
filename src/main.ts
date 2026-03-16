@@ -1,8 +1,9 @@
-import { App, Menu, MenuItem, Modal, Notice, Plugin, Setting } from 'obsidian';
+import { App, Menu, MenuItem, Modal, Notice, Plugin, Setting, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, WebClipperSettings } from './types';
 import { fetchAndParsePage } from './parser';
 import { ClipModal } from './clip-modal';
 import { WebClipperSettingTab } from './settings-tab';
+import { applyTemplate, findMatchingTemplate, generateNoteContent } from './template';
 
 export default class WebClipperPlugin extends Plugin {
 	settings: WebClipperSettings = DEFAULT_SETTINGS;
@@ -135,19 +136,61 @@ export default class WebClipperPlugin extends Plugin {
 			new Notice('Web Clipper: Fetching page...');
 			const page = await fetchAndParsePage(url);
 
-			const modal = new ClipModal(
-				this.app,
-				page,
-				this.settings,
-				async (settings: WebClipperSettings) => {
-					this.settings = settings;
-					await this.saveSettings();
-				}
-			);
-			modal.open();
+			if (this.settings.previewBeforeSave) {
+				const modal = new ClipModal(
+					this.app,
+					page,
+					this.settings,
+					async (settings: WebClipperSettings) => {
+						this.settings = settings;
+						await this.saveSettings();
+					}
+				);
+				modal.open();
+			} else {
+				await this.quickSave(page);
+			}
 		} catch (err) {
 			console.error('Web Clipper error:', err);
 			new Notice(`Web Clipper: Failed to fetch page — ${(err as Error).message}`);
+		}
+	}
+
+	private async quickSave(page: import('./types').ClippedPage) {
+		const template = findMatchingTemplate(
+			page.url,
+			this.settings.templates,
+			this.settings.defaultTemplateId
+		);
+		const applied = applyTemplate(template, page);
+		const folder = template.folder || this.settings.defaultFolder;
+		const content = generateNoteContent(applied.frontmatter, applied.body);
+
+		const folderPath = normalizePath(folder);
+		const filePath = normalizePath(`${folderPath}/${applied.filename}.md`);
+
+		// Ensure folder exists
+		if (!this.app.vault.getAbstractFileByPath(folderPath)) {
+			await this.app.vault.createFolder(folderPath);
+		}
+
+		// Check for existing file and make unique name
+		let finalPath = filePath;
+		let counter = 1;
+		while (this.app.vault.getAbstractFileByPath(finalPath)) {
+			finalPath = normalizePath(`${folderPath}/${applied.filename} ${counter}.md`);
+			counter++;
+		}
+
+		const file = await this.app.vault.create(finalPath, content);
+
+		if (this.settings.showNotification) {
+			new Notice(`Clipped: ${file.basename}`);
+		}
+
+		if (this.settings.openNoteAfterSave) {
+			const leaf = this.app.workspace.getLeaf(false);
+			await leaf.openFile(file);
 		}
 	}
 

@@ -32,6 +32,7 @@ export interface WebClipperSettings {
 	showNotification: boolean;
 	extendShareMenu: boolean;
 	showPreview: boolean;
+	previewBeforeSave: boolean;
 	openNoteAfterSave: boolean;
 }
 
@@ -59,6 +60,7 @@ export const DEFAULT_SETTINGS: WebClipperSettings = {
 	showNotification: true,
 	extendShareMenu: true,
 	showPreview: true,
+	previewBeforeSave: true,
 	openNoteAfterSave: true,
 };
 
