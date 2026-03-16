@@ -25,56 +25,24 @@
 	padding-bottom: var(--size-4-3);
 }
 
-/* OG preview card */
-.web-clipper-og-preview {
-	margin-bottom: var(--size-4-4);
-	padding: var(--size-4-3);
-	border-radius: var(--radius-m);
-	background: var(--background-secondary);
-	border: var(--border-width) solid var(--background-modifier-border);
-}
-
-.web-clipper-og-preview img {
-	display: block;
-	max-width: 100%;
-	max-height: 200px;
-	border-radius: var(--radius-s);
-	margin-bottom: var(--size-4-2);
-	object-fit: cover;
-}
-
-.web-clipper-og-preview .web-clipper-og-title {
-	margin: 0 0 var(--size-4-1) 0;
-	font-size: var(--font-ui-medium);
-	font-weight: var(--font-semibold);
-	color: var(--text-normal);
-}
-
-.web-clipper-description {
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	margin: 0;
-	line-height: var(--line-height-tight);
-}
-
 /* Full-width textareas — override Obsidian's default half-width control.
  * Uses both :has(textarea) and .web-clipper-textarea-setting class for
  * compatibility with mobile WebViews that may not support :has(). */
 .web-clipper-modal .setting-item:has(textarea),
-.web-clipper-template-settings .setting-item:has(textarea),
+.web-clipper-template-edit-modal .setting-item:has(textarea),
 .web-clipper-textarea-setting {
 	flex-direction: column;
 	align-items: flex-start;
 }
 
 .web-clipper-modal .setting-item:has(textarea) .setting-item-control,
-.web-clipper-template-settings .setting-item:has(textarea) .setting-item-control,
+.web-clipper-template-edit-modal .setting-item:has(textarea) .setting-item-control,
 .web-clipper-textarea-setting .setting-item-control {
 	width: 100%;
 }
 
 .web-clipper-modal .setting-item:has(textarea) textarea,
-.web-clipper-template-settings .setting-item:has(textarea) textarea,
+.web-clipper-template-edit-modal .setting-item:has(textarea) textarea,
 .web-clipper-textarea-setting textarea {
 	width: 100%;
 }
@@ -87,7 +55,8 @@
 }
 
 /* Modal action bar */
-.web-clipper-modal .modal-button-container {
+.web-clipper-modal .modal-button-container,
+.web-clipper-preview-modal .modal-button-container {
 	display: flex;
 	justify-content: flex-end;
 	gap: var(--size-4-2);
@@ -96,37 +65,119 @@
 	margin-top: var(--size-4-4);
 }
 
-/* Template list items */
-.web-clipper-template-item,
-.web-clipper-template-item-active {
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-	margin-bottom: var(--size-4-1);
-	padding: 0 var(--size-4-3);
+/* =========================================
+ * Template Card Grid (Settings tab)
+ * ========================================= */
+
+.web-clipper-template-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: var(--size-4-3);
+	margin-top: var(--size-4-2);
 }
 
-.web-clipper-template-item:hover {
-	background: var(--background-modifier-hover);
-}
-
-.web-clipper-template-item-active {
-	background: var(--background-modifier-hover);
-	border-color: var(--interactive-accent);
-}
-
-/* Template settings cards */
-.web-clipper-template-settings {
+.web-clipper-template-card {
+	background: var(--background-secondary);
 	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	padding: var(--size-4-4);
-	margin-bottom: var(--size-4-4);
-	background: var(--background-primary);
+	cursor: pointer;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Settings tab textareas */
-.web-clipper-template-settings .setting-item-control textarea {
+.web-clipper-template-card:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.web-clipper-card-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-3);
+}
+
+.web-clipper-card-name {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.web-clipper-card-badge {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-on-accent);
+	background: var(--interactive-accent);
+	padding: 1px 8px;
+	border-radius: var(--radius-s);
+	white-space: nowrap;
+}
+
+.web-clipper-card-details {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.web-clipper-card-row {
+	display: flex;
+	gap: var(--size-4-2);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
+}
+
+.web-clipper-card-label {
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.web-clipper-card-value {
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.web-clipper-card-mono {
 	font-family: var(--font-monospace-theme);
 	font-size: var(--font-ui-smaller);
+}
+
+/* =========================================
+ * Template Edit Modal
+ * ========================================= */
+
+.web-clipper-template-edit-modal {
+	padding: var(--size-4-4);
+}
+
+.web-clipper-template-edit-modal .setting-item-control textarea {
+	font-family: var(--font-monospace-theme);
+	font-size: var(--font-ui-smaller);
+}
+
+/* =========================================
+ * Preview / Confirmation Modal
+ * ========================================= */
+
+.web-clipper-preview-modal {
+	padding: var(--size-4-4);
+}
+
+.web-clipper-preview-info {
+	margin-bottom: var(--size-4-4);
+	padding-bottom: var(--size-4-3);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.web-clipper-preview-filepath {
+	font-family: var(--font-monospace-theme);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	word-break: break-all;
 }
 
 /* Preview section */
@@ -154,6 +205,6 @@
 	padding: var(--size-4-3);
 }
 
-.is-mobile .web-clipper-og-preview img {
-	max-height: 150px;
+.is-mobile .web-clipper-template-grid {
+	grid-template-columns: 1fr;
 }

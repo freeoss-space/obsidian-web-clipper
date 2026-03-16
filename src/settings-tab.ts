@@ -15,7 +15,6 @@ import type WebClipperPlugin from './main';
 
 export class WebClipperSettingTab extends PluginSettingTab {
 	plugin: WebClipperPlugin;
-	private expandedTemplateIndex: number | null = null;
 
 	constructor(app: App, plugin: WebClipperPlugin) {
 		super(app, plugin);
@@ -164,74 +163,116 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 			});
 
-		// Render template list
+		// Render template card grid
+		const grid = containerEl.createDiv({ cls: 'web-clipper-template-grid' });
 		for (let i = 0; i < this.plugin.settings.templates.length; i++) {
-			this.renderTemplateListItem(containerEl, i);
-		}
-
-		// Render expanded template settings if one is selected
-		if (this.expandedTemplateIndex !== null && this.expandedTemplateIndex < this.plugin.settings.templates.length) {
-			this.renderTemplateSettings(containerEl, this.expandedTemplateIndex);
+			this.renderTemplateCard(grid, i);
 		}
 	}
 
-	private renderTemplateListItem(container: HTMLElement, index: number) {
+	private renderTemplateCard(container: HTMLElement, index: number) {
 		const template = this.plugin.settings.templates[index];
-		const isExpanded = this.expandedTemplateIndex === index;
+		const isDefault = template.id === this.plugin.settings.defaultTemplateId;
 
-		new Setting(container)
-			.setName(template.name)
-			.setClass(isExpanded ? 'web-clipper-template-item-active' : 'web-clipper-template-item')
-			.then((setting: Setting) => {
-				setting.settingEl.style.cursor = 'pointer';
-				setting.settingEl.addEventListener('click', (e: MouseEvent) => {
-					// Don't toggle if clicking on a button inside the setting
-					if ((e.target as HTMLElement).closest('button')) return;
-					this.expandedTemplateIndex = isExpanded ? null : index;
-					this.display();
-				});
-			});
-	}
+		const card = container.createDiv({ cls: 'web-clipper-template-card' });
+		card.addEventListener('click', () => {
+			new TemplateEditModal(
+				this.app,
+				this.plugin,
+				index,
+				() => this.display()
+			).open();
+		});
 
-	private renderTemplateSettings(container: HTMLElement, index: number) {
-		const template = this.plugin.settings.templates[index];
-		const wrapper = container.createDiv({ cls: 'web-clipper-template-settings' });
-
-		// Template header with name and delete
-		const headerSetting = new Setting(wrapper)
-			.setName(`Template: ${template.name}`)
-			.setHeading();
-
-		if (this.plugin.settings.templates.length > 1) {
-			headerSetting.addButton((btn: ButtonComponent) => {
-				btn.setButtonText('Delete');
-				btn.setWarning();
-				btn.onClick(async () => {
-					this.plugin.settings.templates.splice(index, 1);
-					if (this.plugin.settings.defaultTemplateId === template.id) {
-						this.plugin.settings.defaultTemplateId =
-							this.plugin.settings.templates[0]?.id || 'default';
-					}
-					this.expandedTemplateIndex = null;
-					await this.plugin.saveSettings();
-					this.display();
-				});
+		// Card header with name and default badge
+		const cardHeader = card.createDiv({ cls: 'web-clipper-card-header' });
+		cardHeader.createEl('span', {
+			text: template.name,
+			cls: 'web-clipper-card-name',
+		});
+		if (isDefault) {
+			cardHeader.createEl('span', {
+				text: 'Default',
+				cls: 'web-clipper-card-badge',
 			});
 		}
+
+		// Card details
+		const details = card.createDiv({ cls: 'web-clipper-card-details' });
+
+		// Folder
+		const folder = template.folder || this.plugin.settings.defaultFolder;
+		const folderRow = details.createDiv({ cls: 'web-clipper-card-row' });
+		folderRow.createEl('span', { text: 'Folder:', cls: 'web-clipper-card-label' });
+		folderRow.createEl('span', { text: folder, cls: 'web-clipper-card-value' });
+
+		// Filename template
+		const fnRow = details.createDiv({ cls: 'web-clipper-card-row' });
+		fnRow.createEl('span', { text: 'Filename:', cls: 'web-clipper-card-label' });
+		fnRow.createEl('span', {
+			text: template.filenameTemplate || '{{title}}',
+			cls: 'web-clipper-card-value web-clipper-card-mono',
+		});
+
+		// URL patterns count
+		const patternCount = template.urlPatterns.filter(p => p.trim()).length;
+		if (patternCount > 0) {
+			const patRow = details.createDiv({ cls: 'web-clipper-card-row' });
+			patRow.createEl('span', { text: 'URL patterns:', cls: 'web-clipper-card-label' });
+			patRow.createEl('span', {
+				text: `${patternCount}`,
+				cls: 'web-clipper-card-value',
+			});
+		}
+
+		// Properties count
+		const propCount = template.properties.length;
+		const propRow = details.createDiv({ cls: 'web-clipper-card-row' });
+		propRow.createEl('span', { text: 'Properties:', cls: 'web-clipper-card-label' });
+		propRow.createEl('span', {
+			text: `${propCount}`,
+			cls: 'web-clipper-card-value',
+		});
+	}
+}
+
+class TemplateEditModal extends Modal {
+	private plugin: WebClipperPlugin;
+	private index: number;
+	private onClose_callback: () => void;
+
+	constructor(app: App, plugin: WebClipperPlugin, index: number, onClose_callback: () => void) {
+		super(app);
+		this.plugin = plugin;
+		this.index = index;
+		this.onClose_callback = onClose_callback;
+	}
+
+	onOpen() {
+		const { contentEl, titleEl } = this;
+		const template = this.plugin.settings.templates[this.index];
+		if (!template) {
+			this.close();
+			return;
+		}
+
+		titleEl.setText(`Edit Template: ${template.name}`);
+		contentEl.addClass('web-clipper-template-edit-modal');
 
 		// Name
-		new Setting(wrapper)
+		new Setting(contentEl)
 			.setName('Name')
 			.addText((text: TextComponent) => {
 				text.setValue(template.name);
 				text.onChange(async (value: string) => {
 					template.name = value;
+					titleEl.setText(`Edit Template: ${value}`);
 					await this.plugin.saveSettings();
 				});
 			});
 
 		// Folder
-		new Setting(wrapper)
+		new Setting(contentEl)
 			.setName('Folder')
 			.setDesc('Leave empty to use the default folder')
 			.addText((text: TextComponent) => {
@@ -244,7 +285,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			});
 
 		// Filename template
-		new Setting(wrapper)
+		new Setting(contentEl)
 			.setName('Filename template')
 			.addText((text: TextComponent) => {
 				text.setPlaceholder('{{title}}');
@@ -256,7 +297,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			});
 
 		// URL patterns
-		const urlPatternSetting = new Setting(wrapper)
+		const urlPatternSetting = new Setting(contentEl)
 			.setName('URL patterns')
 			.setDesc('Regex patterns (one per line). If a URL matches, this template is auto-selected.')
 			.addTextArea((textarea: TextAreaComponent) => {
@@ -271,7 +312,8 @@ export class WebClipperSettingTab extends PluginSettingTab {
 		urlPatternSetting.settingEl.addClass('web-clipper-textarea-setting');
 
 		// Properties
-		const propsHeading = new Setting(wrapper)
+		const propsSection = contentEl.createDiv();
+		const propsHeading = new Setting(propsSection)
 			.setName('Properties (frontmatter)')
 			.setHeading();
 		propsHeading.addButton((btn: ButtonComponent) => {
@@ -279,16 +321,18 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			btn.onClick(async () => {
 				template.properties.push({ name: 'new_property', value: '' });
 				await this.plugin.saveSettings();
-				this.display();
+				// Re-render modal
+				contentEl.empty();
+				this.onOpen();
 			});
 		});
 
 		for (let j = 0; j < template.properties.length; j++) {
-			this.renderProperty(wrapper, template, j);
+			this.renderProperty(propsSection, template, j);
 		}
 
 		// Body template
-		const bodyTemplateSetting = new Setting(wrapper)
+		const bodyTemplateSetting = new Setting(contentEl)
 			.setName('Body template')
 			.setDesc('Content below the frontmatter')
 			.addTextArea((textarea: TextAreaComponent) => {
@@ -301,6 +345,24 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				textarea.inputEl.rows = 5;
 			});
 		bodyTemplateSetting.settingEl.addClass('web-clipper-textarea-setting');
+
+		// Delete button (only if more than one template)
+		if (this.plugin.settings.templates.length > 1) {
+			new Setting(contentEl)
+				.addButton((btn: ButtonComponent) => {
+					btn.setButtonText('Delete Template');
+					btn.setWarning();
+					btn.onClick(async () => {
+						this.plugin.settings.templates.splice(this.index, 1);
+						if (this.plugin.settings.defaultTemplateId === template.id) {
+							this.plugin.settings.defaultTemplateId =
+								this.plugin.settings.templates[0]?.id || 'default';
+						}
+						await this.plugin.saveSettings();
+						this.close();
+					});
+				});
+		}
 	}
 
 	private renderProperty(
@@ -335,9 +397,16 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			btn.onClick(async () => {
 				template.properties.splice(propIndex, 1);
 				await this.plugin.saveSettings();
-				this.display();
+				// Re-render modal
+				this.contentEl.empty();
+				this.onOpen();
 			});
 		});
+	}
+
+	onClose() {
+		this.contentEl.empty();
+		this.onClose_callback();
 	}
 }
 
