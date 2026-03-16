@@ -31,6 +31,8 @@ export interface WebClipperSettings {
 	defaultTemplateId: string;
 	showNotification: boolean;
 	extendShareMenu: boolean;
+	showPreview: boolean;
+	openNoteAfterSave: boolean;
 }
 
 export const DEFAULT_TEMPLATE: ClipTemplate = {
@@ -56,6 +58,8 @@ export const DEFAULT_SETTINGS: WebClipperSettings = {
 	defaultTemplateId: 'default',
 	showNotification: true,
 	extendShareMenu: true,
+	showPreview: true,
+	openNoteAfterSave: true,
 };
 
 export const TEMPLATE_VARIABLES = [

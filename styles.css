@@ -57,6 +57,23 @@
 	line-height: var(--line-height-tight);
 }
 
+/* Full-width textareas — override Obsidian's default half-width control */
+.web-clipper-modal .setting-item:has(textarea),
+.web-clipper-template-settings .setting-item:has(textarea) {
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.web-clipper-modal .setting-item:has(textarea) .setting-item-control,
+.web-clipper-template-settings .setting-item:has(textarea) .setting-item-control {
+	width: 100%;
+}
+
+.web-clipper-modal .setting-item:has(textarea) textarea,
+.web-clipper-template-settings .setting-item:has(textarea) textarea {
+	width: 100%;
+}
+
 /* Body textarea */
 .web-clipper-body .setting-item-control textarea {
 	font-family: var(--font-monospace-theme);
@@ -87,6 +104,26 @@
 .web-clipper-template-settings .setting-item-control textarea {
 	font-family: var(--font-monospace-theme);
 	font-size: var(--font-ui-smaller);
+}
+
+/* Preview section */
+.web-clipper-preview {
+	max-height: 400px;
+	overflow-y: auto;
+	padding: var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	font-size: var(--font-ui-small);
+}
+
+/* Import dialog */
+.web-clipper-import-dialog {
+	border: var(--border-width) solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-4);
+	margin-bottom: var(--size-4-4);
+	background: var(--background-secondary);
 }
 
 /* Mobile adjustments */

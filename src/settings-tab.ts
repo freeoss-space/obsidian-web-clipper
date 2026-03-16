@@ -1,5 +1,6 @@
 import {
 	App,
+	Notice,
 	PluginSettingTab,
 	Setting,
 	TextComponent,
@@ -8,6 +9,7 @@ import {
 } from 'obsidian';
 import { ClipTemplate, TemplateProperty, WebClipperSettings, DEFAULT_TEMPLATE } from './types';
 import { generateTemplateId } from './template';
+import { importOwcTemplate } from './template-import';
 import type WebClipperPlugin from './main';
 
 export class WebClipperSettingTab extends PluginSettingTab {
@@ -76,6 +78,30 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 			});
 
+		// Show preview
+		new Setting(containerEl)
+			.setName('Show preview')
+			.setDesc('Show a rendered preview of the note before saving')
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.showPreview);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.showPreview = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// Open note after save
+		new Setting(containerEl)
+			.setName('Open note after saving')
+			.setDesc('Automatically open the clipped note after saving. When off, the current note stays open.')
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.openNoteAfterSave);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.openNoteAfterSave = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		// Templates section
 		containerEl.createEl('h3', { text: 'Templates' });
 
@@ -89,7 +115,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			<code>{{publishedDate}}</code>, <code>{{content}}</code>, <code>{{date}}</code>, <code>{{time}}</code>
 		`;
 
-		// Add template button
+		// Add template / Import buttons
 		new Setting(containerEl)
 			.addButton((btn: ButtonComponent) => {
 				btn.setButtonText('Add Template');
@@ -104,6 +130,12 @@ export class WebClipperSettingTab extends PluginSettingTab {
 					this.plugin.settings.templates.push(newTemplate);
 					this.plugin.saveSettings();
 					this.display();
+				});
+			})
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Import from Web Clipper');
+				btn.onClick(() => {
+					this.showImportDialog(containerEl);
 				});
 			});
 
@@ -217,6 +249,48 @@ export class WebClipperSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 				textarea.inputEl.rows = 5;
+			});
+	}
+
+	private showImportDialog(container: HTMLElement) {
+		const wrapper = container.createDiv({ cls: 'web-clipper-import-dialog' });
+
+		new Setting(wrapper)
+			.setName('Import Obsidian Web Clipper Template')
+			.setDesc('Paste a template JSON exported from the official Obsidian Web Clipper browser extension.')
+			.setHeading();
+
+		let jsonValue = '';
+		new Setting(wrapper)
+			.addTextArea((textarea: TextAreaComponent) => {
+				textarea.setPlaceholder('Paste template JSON here...');
+				textarea.onChange((value: string) => {
+					jsonValue = value;
+				});
+				textarea.inputEl.rows = 8;
+			});
+
+		new Setting(wrapper)
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Import');
+				btn.setCta();
+				btn.onClick(async () => {
+					try {
+						const imported = importOwcTemplate(jsonValue);
+						this.plugin.settings.templates.push(imported);
+						await this.plugin.saveSettings();
+						new Notice(`Template "${imported.name}" imported successfully`);
+						this.display();
+					} catch (err) {
+						new Notice(`Import failed: ${(err as Error).message}`);
+					}
+				});
+			})
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Cancel');
+				btn.onClick(() => {
+					wrapper.remove();
+				});
 			});
 	}
 

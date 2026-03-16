@@ -1,9 +1,12 @@
 import {
 	App,
+	Component,
+	MarkdownRenderer,
 	Modal,
 	Setting,
 	Notice,
 	TFolder,
+	ToggleComponent,
 	normalizePath,
 	DropdownComponent,
 	TextComponent,
@@ -28,6 +31,9 @@ export class ClipModal extends Modal {
 	private filenameInput: TextComponent | null = null;
 	private propertiesContainer: HTMLElement | null = null;
 	private bodyArea: TextAreaComponent | null = null;
+	private previewContainer: HTMLElement | null = null;
+	private showPreview: boolean;
+	private renderComponent: Component;
 
 	constructor(
 		app: App,
@@ -51,6 +57,8 @@ export class ClipModal extends Modal {
 		this.frontmatter = applied.frontmatter;
 		this.bodyContent = applied.body;
 		this.folder = this.selectedTemplate.folder || settings.defaultFolder;
+		this.showPreview = settings.showPreview;
+		this.renderComponent = new Component();
 	}
 
 	onOpen() {
@@ -78,6 +86,9 @@ export class ClipModal extends Modal {
 
 		// Body content
 		this.renderBody(contentEl);
+
+		// Preview
+		this.renderPreview(contentEl);
 
 		// Save/Cancel buttons
 		this.renderActions(contentEl);
@@ -213,9 +224,53 @@ export class ClipModal extends Modal {
 				textarea.setValue(this.bodyContent);
 				textarea.onChange((value: string) => {
 					this.bodyContent = value;
+					this.updatePreview();
 				});
 				textarea.inputEl.rows = 15;
 			});
+	}
+
+	private renderPreview(container: HTMLElement) {
+		const section = container.createDiv({ cls: 'web-clipper-preview-section' });
+
+		new Setting(section)
+			.setName('Preview')
+			.setHeading()
+			.addToggle((toggle: ToggleComponent) => {
+				toggle.setValue(this.showPreview);
+				toggle.setTooltip('Toggle preview');
+				toggle.onChange((value: boolean) => {
+					this.showPreview = value;
+					this.settings.showPreview = value;
+					this.onSave(this.settings);
+					this.updatePreview();
+				});
+			});
+
+		this.previewContainer = section.createDiv({ cls: 'web-clipper-preview' });
+		this.updatePreview();
+	}
+
+	private updatePreview() {
+		if (!this.previewContainer) return;
+		this.previewContainer.empty();
+
+		if (!this.showPreview) {
+			this.previewContainer.style.display = 'none';
+			return;
+		}
+
+		this.previewContainer.style.display = '';
+		const content = generateNoteContent(this.frontmatter, this.bodyContent);
+		this.renderComponent.unload();
+		this.renderComponent.load();
+		MarkdownRenderer.render(
+			this.app,
+			content,
+			this.previewContainer,
+			'',
+			this.renderComponent,
+		);
 	}
 
 	private renderActions(container: HTMLElement) {
@@ -238,6 +293,7 @@ export class ClipModal extends Modal {
 		if (this.filenameInput) this.filenameInput.setValue(this.filename);
 		if (this.bodyArea) this.bodyArea.setValue(this.bodyContent);
 		this.renderPropertyFields();
+		this.updatePreview();
 	}
 
 	private getFolderSuggestions(): string[] {
@@ -284,9 +340,10 @@ export class ClipModal extends Modal {
 				new Notice(`Clipped: ${file.basename}`);
 			}
 
-			// Open the new note
-			const leaf = this.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
+			if (this.settings.openNoteAfterSave) {
+				const leaf = this.app.workspace.getLeaf(false);
+				await leaf.openFile(file);
+			}
 
 			this.close();
 		} catch (err) {
@@ -296,6 +353,7 @@ export class ClipModal extends Modal {
 	}
 
 	onClose() {
+		this.renderComponent.unload();
 		this.contentEl.empty();
 	}
 }
