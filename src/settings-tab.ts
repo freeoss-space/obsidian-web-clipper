@@ -15,6 +15,7 @@ import type WebClipperPlugin from './main';
 
 export class WebClipperSettingTab extends PluginSettingTab {
 	plugin: WebClipperPlugin;
+	private expandedTemplateIndex: number | null = null;
 
 	constructor(app: App, plugin: WebClipperPlugin) {
 		super(app, plugin);
@@ -151,13 +152,36 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 			});
 
-		// Render each template
+		// Render template list
 		for (let i = 0; i < this.plugin.settings.templates.length; i++) {
-			this.renderTemplate(containerEl, i);
+			this.renderTemplateListItem(containerEl, i);
+		}
+
+		// Render expanded template settings if one is selected
+		if (this.expandedTemplateIndex !== null && this.expandedTemplateIndex < this.plugin.settings.templates.length) {
+			this.renderTemplateSettings(containerEl, this.expandedTemplateIndex);
 		}
 	}
 
-	private renderTemplate(container: HTMLElement, index: number) {
+	private renderTemplateListItem(container: HTMLElement, index: number) {
+		const template = this.plugin.settings.templates[index];
+		const isExpanded = this.expandedTemplateIndex === index;
+
+		new Setting(container)
+			.setName(template.name)
+			.setClass(isExpanded ? 'web-clipper-template-item-active' : 'web-clipper-template-item')
+			.then((setting: Setting) => {
+				setting.settingEl.style.cursor = 'pointer';
+				setting.settingEl.addEventListener('click', (e: MouseEvent) => {
+					// Don't toggle if clicking on a button inside the setting
+					if ((e.target as HTMLElement).closest('button')) return;
+					this.expandedTemplateIndex = isExpanded ? null : index;
+					this.display();
+				});
+			});
+	}
+
+	private renderTemplateSettings(container: HTMLElement, index: number) {
 		const template = this.plugin.settings.templates[index];
 		const wrapper = container.createDiv({ cls: 'web-clipper-template-settings' });
 
@@ -176,6 +200,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 						this.plugin.settings.defaultTemplateId =
 							this.plugin.settings.templates[0]?.id || 'default';
 					}
+					this.expandedTemplateIndex = null;
 					await this.plugin.saveSettings();
 					this.display();
 				});
