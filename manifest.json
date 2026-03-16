@@ -1,7 +1,7 @@
 {
 	"id": "web-clipper-mobile",
 	"name": "Web Clipper Mobile",
-	"version": "0.0.0",
+	"version": "0.0.1",
 	"minAppVersion": "1.4.0",
 	"description": "Clip web pages from mobile share intents into Obsidian notes with customizable templates, metadata extraction, and Markdown conversion.",
 	"author": "obsidian-web-clipper",
