@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { importOwcTemplate, isOwcTemplateJson } from '../template-import';
+import { importOwcTemplate, importOwcTemplates, isOwcTemplateJson } from '../template-import';
 
 describe('importOwcTemplate', () => {
 	it('imports a basic OWC template', () => {
@@ -120,6 +120,36 @@ describe('importOwcTemplate', () => {
 	});
 });
 
+describe('importOwcTemplates', () => {
+	it('imports a single template object', () => {
+		const json = JSON.stringify({ name: 'Single', noteContentFormat: '{{content}}' });
+		const results = importOwcTemplates(json);
+		expect(results).toHaveLength(1);
+		expect(results[0].name).toBe('Single');
+	});
+
+	it('imports an array of templates', () => {
+		const json = JSON.stringify([
+			{ name: 'First', noteContentFormat: '{{content}}' },
+			{ name: 'Second', noteContentFormat: '# {{title}}' },
+		]);
+		const results = importOwcTemplates(json);
+		expect(results).toHaveLength(2);
+		expect(results[0].name).toBe('First');
+		expect(results[1].name).toBe('Second');
+		expect(results[0].id).not.toBe(results[1].id);
+	});
+
+	it('throws on empty array', () => {
+		expect(() => importOwcTemplates('[]')).toThrow('empty array');
+	});
+
+	it('throws on invalid template in array', () => {
+		const json = JSON.stringify([{}]);
+		expect(() => importOwcTemplates(json)).toThrow('Invalid template');
+	});
+});
+
 describe('isOwcTemplateJson', () => {
 	it('returns true for valid OWC template JSON', () => {
 		expect(isOwcTemplateJson('{"name":"Test"}')).toBe(true);
@@ -136,5 +166,17 @@ describe('isOwcTemplateJson', () => {
 		expect(isOwcTemplateJson('{"foo":"bar"}')).toBe(false);
 		expect(isOwcTemplateJson('42')).toBe(false);
 		expect(isOwcTemplateJson('null')).toBe(false);
+	});
+
+	it('returns true for an array of valid templates', () => {
+		expect(isOwcTemplateJson('[{"name":"A"},{"name":"B"}]')).toBe(true);
+	});
+
+	it('returns false for an empty array', () => {
+		expect(isOwcTemplateJson('[]')).toBe(false);
+	});
+
+	it('returns false for an array of non-template objects', () => {
+		expect(isOwcTemplateJson('[{"foo":"bar"}]')).toBe(false);
 	});
 });

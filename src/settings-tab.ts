@@ -1,5 +1,6 @@
 import {
 	App,
+	Modal,
 	Notice,
 	PluginSettingTab,
 	Setting,
@@ -9,7 +10,7 @@ import {
 } from 'obsidian';
 import { ClipTemplate, TemplateProperty, WebClipperSettings, DEFAULT_TEMPLATE } from './types';
 import { generateTemplateId } from './template';
-import { importOwcTemplate } from './template-import';
+import { importOwcTemplates } from './template-import';
 import type WebClipperPlugin from './main';
 
 export class WebClipperSettingTab extends PluginSettingTab {
@@ -135,7 +136,18 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			.addButton((btn: ButtonComponent) => {
 				btn.setButtonText('Import from Web Clipper');
 				btn.onClick(() => {
-					this.showImportDialog(containerEl);
+					new ImportTemplateModal(this.app, async (templates) => {
+						this.plugin.settings.templates.push(...templates);
+						await this.plugin.saveSettings();
+						const count = templates.length;
+						const names = templates.map(t => t.name).join(', ');
+						new Notice(
+							count === 1
+								? `Template "${names}" imported successfully`
+								: `${count} templates imported: ${names}`
+						);
+						this.display();
+					}).open();
 				});
 			});
 
@@ -254,49 +266,6 @@ export class WebClipperSettingTab extends PluginSettingTab {
 		bodyTemplateSetting.settingEl.addClass('web-clipper-textarea-setting');
 	}
 
-	private showImportDialog(container: HTMLElement) {
-		const wrapper = container.createDiv({ cls: 'web-clipper-import-dialog' });
-
-		new Setting(wrapper)
-			.setName('Import Obsidian Web Clipper Template')
-			.setDesc('Paste a template JSON exported from the official Obsidian Web Clipper browser extension.')
-			.setHeading();
-
-		let jsonValue = '';
-		const importSetting = new Setting(wrapper)
-			.addTextArea((textarea: TextAreaComponent) => {
-				textarea.setPlaceholder('Paste template JSON here...');
-				textarea.onChange((value: string) => {
-					jsonValue = value;
-				});
-				textarea.inputEl.rows = 8;
-			});
-		importSetting.settingEl.addClass('web-clipper-textarea-setting');
-
-		new Setting(wrapper)
-			.addButton((btn: ButtonComponent) => {
-				btn.setButtonText('Import');
-				btn.setCta();
-				btn.onClick(async () => {
-					try {
-						const imported = importOwcTemplate(jsonValue);
-						this.plugin.settings.templates.push(imported);
-						await this.plugin.saveSettings();
-						new Notice(`Template "${imported.name}" imported successfully`);
-						this.display();
-					} catch (err) {
-						new Notice(`Import failed: ${(err as Error).message}`);
-					}
-				});
-			})
-			.addButton((btn: ButtonComponent) => {
-				btn.setButtonText('Cancel');
-				btn.onClick(() => {
-					wrapper.remove();
-				});
-			});
-	}
-
 	private renderProperty(
 		container: HTMLElement,
 		template: ClipTemplate,
@@ -332,5 +301,67 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				this.display();
 			});
 		});
+	}
+}
+
+class ImportTemplateModal extends Modal {
+	private onImport: (templates: ClipTemplate[]) => void;
+	private jsonValue = '';
+
+	constructor(app: App, onImport: (templates: ClipTemplate[]) => void) {
+		super(app);
+		this.onImport = onImport;
+	}
+
+	onOpen() {
+		const { contentEl, titleEl } = this;
+		titleEl.setText('Import from Obsidian Web Clipper');
+
+		contentEl.createEl('p', {
+			text: 'Paste template JSON exported from the official Obsidian Web Clipper browser extension. Supports single templates or an array of templates.',
+			cls: 'setting-item-description',
+		});
+
+		const textareaSetting = new Setting(contentEl)
+			.addTextArea((textarea: TextAreaComponent) => {
+				textarea.setPlaceholder('Paste template JSON here...');
+				textarea.onChange((value: string) => {
+					this.jsonValue = value;
+				});
+				textarea.inputEl.rows = 10;
+			});
+		textareaSetting.settingEl.addClass('web-clipper-textarea-setting');
+
+		new Setting(contentEl)
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Paste from clipboard');
+				btn.onClick(async () => {
+					try {
+						const text = await navigator.clipboard.readText();
+						this.jsonValue = text;
+						const textarea = contentEl.querySelector('textarea');
+						if (textarea) textarea.value = text;
+					} catch {
+						new Notice('Could not read clipboard');
+					}
+				});
+			})
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Import');
+				btn.setCta();
+				btn.onClick(() => {
+					try {
+						const templates = importOwcTemplates(this.jsonValue);
+						this.onImport(templates);
+						this.close();
+					} catch (err) {
+						new Notice(`Import failed: ${(err as Error).message}`);
+					}
+				});
+			});
+	}
+
+	onClose() {
+		this.contentEl.empty();
 	}
 }
