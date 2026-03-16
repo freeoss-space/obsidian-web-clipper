@@ -218,7 +218,7 @@ export class ClipModal extends Modal {
 		const section = container.createDiv({ cls: 'web-clipper-body' });
 		new Setting(section).setName('Content').setHeading();
 
-		new Setting(section)
+		const bodySetting = new Setting(section)
 			.addTextArea((textarea: TextAreaComponent) => {
 				this.bodyArea = textarea;
 				textarea.setValue(this.bodyContent);
@@ -228,6 +228,7 @@ export class ClipModal extends Modal {
 				});
 				textarea.inputEl.rows = 15;
 			});
+		bodySetting.settingEl.addClass('web-clipper-textarea-setting');
 	}
 
 	private renderPreview(container: HTMLElement) {

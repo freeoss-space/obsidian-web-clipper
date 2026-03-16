@@ -207,7 +207,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			});
 
 		// URL patterns
-		new Setting(wrapper)
+		const urlPatternSetting = new Setting(wrapper)
 			.setName('URL patterns')
 			.setDesc('Regex patterns (one per line). If a URL matches, this template is auto-selected.')
 			.addTextArea((textarea: TextAreaComponent) => {
@@ -219,6 +219,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 				textarea.inputEl.rows = 3;
 			});
+		urlPatternSetting.settingEl.addClass('web-clipper-textarea-setting');
 
 		// Properties
 		const propsHeading = new Setting(wrapper)
@@ -238,7 +239,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 		}
 
 		// Body template
-		new Setting(wrapper)
+		const bodyTemplateSetting = new Setting(wrapper)
 			.setName('Body template')
 			.setDesc('Content below the frontmatter')
 			.addTextArea((textarea: TextAreaComponent) => {
@@ -250,6 +251,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 				textarea.inputEl.rows = 5;
 			});
+		bodyTemplateSetting.settingEl.addClass('web-clipper-textarea-setting');
 	}
 
 	private showImportDialog(container: HTMLElement) {
@@ -261,7 +263,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		let jsonValue = '';
-		new Setting(wrapper)
+		const importSetting = new Setting(wrapper)
 			.addTextArea((textarea: TextAreaComponent) => {
 				textarea.setPlaceholder('Paste template JSON here...');
 				textarea.onChange((value: string) => {
@@ -269,6 +271,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 				textarea.inputEl.rows = 8;
 			});
+		importSetting.settingEl.addClass('web-clipper-textarea-setting');
 
 		new Setting(wrapper)
 			.addButton((btn: ButtonComponent) => {
