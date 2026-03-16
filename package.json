@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-web-clipper-mobile",
-	"version": "0.0.7",
+	"version": "0.0.8",
 	"description": "Clip web pages from mobile share intents into Obsidian notes",
 	"main": "main.js",
 	"scripts": {
