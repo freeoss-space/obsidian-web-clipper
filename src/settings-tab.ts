@@ -80,6 +80,18 @@ export class WebClipperSettingTab extends PluginSettingTab {
 				});
 			});
 
+		// Preview before save
+		new Setting(containerEl)
+			.setName('Preview before saving')
+			.setDesc('Show a preview modal to review and edit clippings before saving. When off, clippings are saved immediately.')
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.previewBeforeSave);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.previewBeforeSave = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		// Show preview
 		new Setting(containerEl)
 			.setName('Show preview')
