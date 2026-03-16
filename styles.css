@@ -11,18 +11,47 @@
 	margin-bottom: var(--size-4-1);
 }
 
+.web-clipper-page-title {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	margin-bottom: var(--size-4-1);
+	line-height: var(--line-height-tight);
+}
+
 .web-clipper-url {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	word-break: break-all;
-	margin-bottom: var(--size-4-4);
 	font-family: var(--font-monospace-theme);
+	text-decoration: none;
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.web-clipper-url:hover {
+	color: var(--text-accent);
 }
 
 .web-clipper-header {
 	margin-bottom: var(--size-4-4);
 	border-bottom: var(--border-width) solid var(--background-modifier-border);
 	padding-bottom: var(--size-4-3);
+}
+
+/* Section headings in clip modal */
+.web-clipper-modal .setting-item.setting-item-heading {
+	border-bottom: none;
+	padding-top: var(--size-4-2);
+}
+
+.web-clipper-modal .setting-item.setting-item-heading .setting-item-name {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 }
 
 /* Full-width textareas — override Obsidian's default half-width control.
@@ -63,6 +92,17 @@
 	padding-top: var(--size-4-4);
 	border-top: var(--border-width) solid var(--background-modifier-border);
 	margin-top: var(--size-4-4);
+}
+
+/* Settings page template action buttons */
+.web-clipper-template-actions .setting-item-control {
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	justify-content: flex-end;
+}
+
+.web-clipper-template-actions {
+	border-top: none;
 }
 
 /* =========================================

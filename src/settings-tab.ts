@@ -129,7 +129,9 @@ export class WebClipperSettingTab extends PluginSettingTab {
 		`;
 
 		// Add template / Import buttons
-		new Setting(containerEl)
+		const templateActions = new Setting(containerEl);
+		templateActions.settingEl.addClass('web-clipper-template-actions');
+		templateActions
 			.addButton((btn: ButtonComponent) => {
 				btn.setButtonText('Add Template');
 				btn.setCta();

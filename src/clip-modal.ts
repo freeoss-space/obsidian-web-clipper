@@ -84,10 +84,16 @@ export class ClipModal extends Modal {
 
 	private renderHeader(container: HTMLElement) {
 		const header = container.createDiv({ cls: 'web-clipper-header' });
-		header.createEl('p', {
+		header.createEl('div', {
+			text: this.page.title || 'Untitled',
+			cls: 'web-clipper-page-title',
+		});
+		const urlEl = header.createEl('a', {
 			text: this.page.url,
 			cls: 'web-clipper-url',
+			href: this.page.url,
 		});
+		urlEl.addEventListener('click', (e) => e.preventDefault());
 	}
 
 	private renderTemplateSelector(container: HTMLElement) {
