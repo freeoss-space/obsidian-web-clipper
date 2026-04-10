@@ -225,6 +225,10 @@ export default class WebClipperPlugin extends Plugin {
 	/**
 	 * Idea 6: search the vault metadata cache for a note whose source/url/link
 	 * frontmatter property matches the given URL.
+	 *
+	 * The property names checked ('source', 'url', 'link') match the defaults
+	 * used by the Default template. Custom templates that use different property
+	 * names for the source URL will not be detected; this is a known limitation.
 	 */
 	private findNoteByUrl(url: string): TFile | null {
 		for (const file of this.app.vault.getMarkdownFiles()) {

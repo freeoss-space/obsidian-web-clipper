@@ -252,7 +252,7 @@ export class WebClipperSettingTab extends PluginSettingTab {
 		dupBtn.addEventListener('click', async (e) => {
 			e.stopPropagation();
 			const dup: ClipTemplate = {
-				...JSON.parse(JSON.stringify(template)), // deep clone
+				...structuredClone(template),
 				id: generateTemplateId(),
 				name: `${template.name} (copy)`,
 			};

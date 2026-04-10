@@ -56,6 +56,23 @@ describe('parseHtml — tags from meta keywords (Idea 9)', () => {
 		);
 		expect(page.tags).toBe('web-clipping, getting-things-done');
 	});
+
+	it('filters out empty entries in the keyword list', () => {
+		const page = parseHtml(
+			html('<p>x</p>', '<meta name="keywords" content="obsidian,,, pkm">'),
+			BASE_URL
+		);
+		// Empty segments produced by consecutive commas are removed
+		expect(page.tags).toBe('obsidian, pkm');
+	});
+
+	it('handles leading and trailing whitespace in each keyword', () => {
+		const page = parseHtml(
+			html('<p>x</p>', '<meta name="keywords" content="  Obsidian  ,  PKM  ">'),
+			BASE_URL
+		);
+		expect(page.tags).toBe('obsidian, pkm');
+	});
 });
 
 describe('parseHtml — relative URL resolution in content (Idea 28)', () => {

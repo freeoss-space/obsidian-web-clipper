@@ -51,14 +51,9 @@ export function parseHtml(html: string, url: string, contentSelector?: string): 
 		? (doc.querySelector(contentSelector) ?? extractMainContent(doc))
 		: extractMainContent(doc);
 
-	if (contentSelector && contentElement === extractMainContent(doc)) {
-		// selector matched nothing useful, already fell back
-	}
-
 	const content = htmlToMarkdown(contentElement, resolvedUrl);
 
-	return {
-		url: resolvedUrl,
+	return {		url: resolvedUrl,
 		title,
 		author,
 		description,

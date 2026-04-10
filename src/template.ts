@@ -107,18 +107,28 @@ function replaceVariables(template: string, vars: Record<string, string>, now: D
 
 /**
  * Idea 1: Format a Date using day.js-compatible format tokens.
- * Supported: YYYY MM DD HH mm ss x (ms) X (s)
+ * Supported: YYYY MM DD HH mm ss x (unix ms) X (unix s)
+ *
+ * A single-pass regex replacement is used (longest tokens first) to prevent
+ * partial matches, e.g. 'MM' inside a future 'MMMM' token.
  */
 function formatDate(d: Date, fmt: string): string {
-	return fmt
-		.replace('YYYY', String(d.getFullYear()))
-		.replace('MM',   String(d.getMonth() + 1).padStart(2, '0'))
-		.replace('DD',   String(d.getDate()).padStart(2, '0'))
-		.replace('HH',   String(d.getHours()).padStart(2, '0'))
-		.replace('mm',   String(d.getMinutes()).padStart(2, '0'))
-		.replace('ss',   String(d.getSeconds()).padStart(2, '0'))
-		.replace('x',    String(d.getTime()))
-		.replace('X',    String(Math.floor(d.getTime() / 1000)));
+	const tokens: Record<string, string> = {
+		'YYYY': String(d.getFullYear()),
+		'MM':   String(d.getMonth() + 1).padStart(2, '0'),
+		'DD':   String(d.getDate()).padStart(2, '0'),
+		'HH':   String(d.getHours()).padStart(2, '0'),
+		'mm':   String(d.getMinutes()).padStart(2, '0'),
+		'ss':   String(d.getSeconds()).padStart(2, '0'),
+		'x':    String(d.getTime()),
+		'X':    String(Math.floor(d.getTime() / 1000)),
+	};
+	// Sort keys by descending length so that longer tokens take precedence
+	const pattern = new RegExp(
+		Object.keys(tokens).sort((a, b) => b.length - a.length).join('|'),
+		'g'
+	);
+	return fmt.replace(pattern, (token) => tokens[token] ?? token);
 }
 
 function sanitizeFilename(name: string): string {
@@ -156,6 +166,8 @@ function yamlValue(value: string): string {
 		/^\d/.test(bare) ||
 		// Double quotes in the value must be escaped, so quote the whole thing
 		bare.includes('"') ||
+		// Backslashes also require escaping inside double-quoted YAML scalars
+		bare.includes('\\') ||
 		// URLs contain "://" which some YAML parsers can misread
 		bare.includes('://');
 
