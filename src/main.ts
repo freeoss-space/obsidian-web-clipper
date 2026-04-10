@@ -1,6 +1,6 @@
-import { App, Menu, MenuItem, Modal, Notice, Plugin, Setting, normalizePath } from 'obsidian';
+import { App, Menu, MenuItem, Modal, Notice, Plugin, Setting, TFile, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, WebClipperSettings } from './types';
-import { fetchAndParsePage } from './parser';
+import { extractContentWithSelector, fetchAndParsePage } from './parser';
 import { ClipModal } from './clip-modal';
 import { WebClipperSettingTab } from './settings-tab';
 import { applyTemplate, findMatchingTemplate, generateNoteContent } from './template';
@@ -136,23 +136,41 @@ export default class WebClipperPlugin extends Plugin {
 			new Notice('Web Clipper: Fetching page...');
 			const page = await fetchAndParsePage(url);
 
-			if (this.settings.previewBeforeSave) {
-				const modal = new ClipModal(
+			// Idea 6: check for a previously clipped note with the same source URL
+			const existingNote = this.findNoteByUrl(page.url);
+			if (existingNote) {
+				new DuplicateUrlModal(
 					this.app,
-					page,
-					this.settings,
-					async (settings: WebClipperSettings) => {
-						this.settings = settings;
-						await this.saveSettings();
+					existingNote,
+					async () => {
+						// User chose to create a new note anyway
+						await this.openClipFlow(page);
 					}
-				);
-				modal.open();
-			} else {
-				await this.quickSave(page);
+				).open();
+				return;
 			}
+
+			await this.openClipFlow(page);
 		} catch (err) {
 			console.error('Web Clipper error:', err);
 			new Notice(`Web Clipper: Failed to fetch page — ${(err as Error).message}`);
+		}
+	}
+
+	private async openClipFlow(page: import('./types').ClippedPage) {
+		if (this.settings.previewBeforeSave) {
+			const modal = new ClipModal(
+				this.app,
+				page,
+				this.settings,
+				async (settings: WebClipperSettings) => {
+					this.settings = settings;
+					await this.saveSettings();
+				}
+			);
+			modal.open();
+		} else {
+			await this.quickSave(page);
 		}
 	}
 
@@ -162,9 +180,19 @@ export default class WebClipperPlugin extends Plugin {
 			this.settings.templates,
 			this.settings.defaultTemplateId
 		);
-		const applied = applyTemplate(template, page);
+
+		// Idea 5: re-extract content using the template's custom CSS selector if set
+		let pageToSave = page;
+		if (template.contentSelector && page.rawHtml) {
+			pageToSave = {
+				...page,
+				content: extractContentWithSelector(page.rawHtml, page.url, template.contentSelector),
+			};
+		}
+
+		const applied = applyTemplate(template, pageToSave);
 		const folder = template.folder || this.settings.defaultFolder;
-		const content = generateNoteContent(applied.frontmatter, applied.body);
+		const content = generateNoteContent(applied.frontmatter, applied.body, applied.listProperties);
 
 		const folderPath = normalizePath(folder);
 		const filePath = normalizePath(`${folderPath}/${applied.filename}.md`);
@@ -192,6 +220,22 @@ export default class WebClipperPlugin extends Plugin {
 			const leaf = this.app.workspace.getLeaf(false);
 			await leaf.openFile(file);
 		}
+	}
+
+	/**
+	 * Idea 6: search the vault metadata cache for a note whose source/url/link
+	 * frontmatter property matches the given URL.
+	 */
+	private findNoteByUrl(url: string): TFile | null {
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			const fm = cache?.frontmatter;
+			if (!fm) continue;
+			if (fm['source'] === url || fm['url'] === url || fm['link'] === url) {
+				return file;
+			}
+		}
+		return null;
 	}
 
 	async loadSettings() {
@@ -259,6 +303,53 @@ class ManualUrlModal extends Modal {
 			this.onSubmit(url);
 			this.close();
 		}
+	}
+
+	onClose() {
+		this.contentEl.empty();
+	}
+}
+
+/**
+ * Idea 6: shown when a note with the same source URL already exists in the vault.
+ * The user can open the existing note or create a new one anyway.
+ */
+class DuplicateUrlModal extends Modal {
+	private existingNote: TFile;
+	private onCreateNew: () => void;
+
+	constructor(app: App, existingNote: TFile, onCreateNew: () => void) {
+		super(app);
+		this.existingNote = existingNote;
+		this.onCreateNew = onCreateNew;
+	}
+
+	onOpen() {
+		const { contentEl, titleEl } = this;
+		titleEl.setText('Already clipped');
+
+		contentEl.createEl('p', {
+			text: `A note for this URL already exists: "${this.existingNote.basename}"`,
+			cls: 'setting-item-description',
+		});
+
+		new Setting(contentEl)
+			.addButton((btn) => {
+				btn.setButtonText('Open existing note');
+				btn.setCta();
+				btn.onClick(async () => {
+					const leaf = this.app.workspace.getLeaf(false);
+					await leaf.openFile(this.existingNote);
+					this.close();
+				});
+			})
+			.addButton((btn) => {
+				btn.setButtonText('Create new note anyway');
+				btn.onClick(() => {
+					this.onCreateNew();
+					this.close();
+				});
+			});
 	}
 
 	onClose() {

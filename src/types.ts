@@ -6,11 +6,15 @@ export interface ClipTemplate {
 	urlPatterns: string[];
 	properties: TemplateProperty[];
 	bodyTemplate: string;
+	/** Optional CSS selector used to override the default content extraction. */
+	contentSelector?: string;
 }
 
 export interface TemplateProperty {
 	name: string;
 	value: string;
+	/** When 'list', the value is treated as comma-separated items rendered as a YAML sequence. */
+	type?: 'text' | 'list';
 }
 
 export interface ClippedPage {
@@ -21,6 +25,8 @@ export interface ClippedPage {
 	ogImage: string;
 	siteName: string;
 	publishedDate: string;
+	/** Comma-separated keywords derived from <meta name="keywords">. */
+	tags: string;
 	content: string;
 	rawHtml: string;
 }
@@ -67,12 +73,16 @@ export const DEFAULT_SETTINGS: WebClipperSettings = {
 export const TEMPLATE_VARIABLES = [
 	'title',
 	'url',
+	'hostname',
 	'author',
 	'description',
 	'ogImage',
 	'siteName',
 	'publishedDate',
+	'tags',
 	'content',
+	'wordCount',
+	'readingTime',
 	'date',
 	'time',
 ] as const;

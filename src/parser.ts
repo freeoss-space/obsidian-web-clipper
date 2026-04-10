@@ -1,14 +1,18 @@
 import { requestUrl } from 'obsidian';
 import { ClippedPage } from './types';
 
-export async function fetchAndParsePage(url: string): Promise<ClippedPage> {
+export async function fetchAndParsePage(url: string, contentSelector?: string): Promise<ClippedPage> {
 	const response = await requestUrl({ url });
 	const html = response.text;
-	return parseHtml(html, url);
+	return parseHtml(html, url, contentSelector);
 }
 
-export function parseHtml(html: string, url: string): ClippedPage {
+export function parseHtml(html: string, url: string, contentSelector?: string): ClippedPage {
 	const doc = new DOMParser().parseFromString(html, 'text/html');
+
+	// Idea 27: resolve canonical URL before using it as the page URL
+	const canonicalHref = doc.querySelector('link[rel="canonical"]')?.getAttribute('href');
+	const resolvedUrl = canonicalHref ? resolveUrl(canonicalHref, url) : url;
 
 	const title = getMetaContent(doc, 'og:title')
 		|| doc.querySelector('title')?.textContent?.trim()
@@ -27,27 +31,57 @@ export function parseHtml(html: string, url: string): ClippedPage {
 	const ogImage = getMetaContent(doc, 'og:image') || '';
 
 	const siteName = getMetaContent(doc, 'og:site_name')
-		|| new URL(url).hostname
+		|| new URL(resolvedUrl).hostname
 		|| '';
 
 	const publishedDate = getMetaContent(doc, 'article:published_time')
 		|| getMetaContent(doc, 'date')
 		|| '';
 
-	const contentElement = extractMainContent(doc);
-	const content = htmlToMarkdown(contentElement);
+	// Idea 9: extract tags from <meta name="keywords">
+	const rawKeywords = getMetaContent(doc, 'keywords') || getMetaContent(doc, 'article:tag') || '';
+	const tags = rawKeywords
+		.split(',')
+		.map(t => t.trim().toLowerCase().replace(/\s+/g, '-'))
+		.filter(Boolean)
+		.join(', ');
+
+	// Idea 5 + 28: use content selector override if provided; pass resolvedUrl for relative URL resolution
+	const contentElement = contentSelector
+		? (doc.querySelector(contentSelector) ?? extractMainContent(doc))
+		: extractMainContent(doc);
+
+	if (contentSelector && contentElement === extractMainContent(doc)) {
+		// selector matched nothing useful, already fell back
+	}
+
+	const content = htmlToMarkdown(contentElement, resolvedUrl);
 
 	return {
-		url,
+		url: resolvedUrl,
 		title,
 		author,
 		description,
-		ogImage: resolveUrl(ogImage, url),
+		ogImage: resolveUrl(ogImage, resolvedUrl),
 		siteName,
 		publishedDate,
+		tags,
 		content,
 		rawHtml: html,
 	};
+}
+
+/**
+ * Re-extract content from raw HTML using a specific CSS selector.
+ * Falls back to default extraction if the selector matches nothing.
+ */
+export function extractContentWithSelector(html: string, url: string, selector: string): string {
+	const doc = new DOMParser().parseFromString(html, 'text/html');
+	const el = selector ? doc.querySelector(selector) : null;
+	const contentEl = (el && el.textContent && el.textContent.trim().length > 0)
+		? el
+		: extractMainContent(doc);
+	return htmlToMarkdown(contentEl, url);
 }
 
 function getMetaContent(doc: Document, name: string): string {
@@ -101,7 +135,8 @@ function extractMainContent(doc: Document): Element {
 	return doc.body || doc.documentElement;
 }
 
-function htmlToMarkdown(element: Element): string {
+// Idea 28: thread baseUrl through so relative hrefs/srcs can be resolved to absolute URLs
+function htmlToMarkdown(element: Element, baseUrl: string): string {
 	// Remove unwanted elements
 	const clone = element.cloneNode(true) as Element;
 	const removeSelectors = [
@@ -114,10 +149,10 @@ function htmlToMarkdown(element: Element): string {
 		clone.querySelectorAll(selector).forEach(el => el.remove());
 	}
 
-	return convertNode(clone).trim();
+	return convertNode(clone, baseUrl).trim();
 }
 
-function convertNode(node: Node): string {
+function convertNode(node: Node, baseUrl: string): string {
 	if (node.nodeType === Node.TEXT_NODE) {
 		return node.textContent?.replace(/\s+/g, ' ') || '';
 	}
@@ -128,7 +163,7 @@ function convertNode(node: Node): string {
 
 	const el = node as Element;
 	const tag = el.tagName.toLowerCase();
-	const children = Array.from(el.childNodes).map(convertNode).join('');
+	const children = Array.from(el.childNodes).map(n => convertNode(n, baseUrl)).join('');
 
 	switch (tag) {
 		case 'h1': return `\n\n# ${children.trim()}\n\n`;
@@ -153,14 +188,18 @@ function convertNode(node: Node): string {
 		}
 		case 'blockquote': return `\n\n> ${children.trim().replace(/\n/g, '\n> ')}\n\n`;
 		case 'a': {
-			const href = el.getAttribute('href');
+			const rawHref = el.getAttribute('href');
+			// Idea 28: resolve relative href to absolute URL
+			const href = rawHref ? resolveUrl(rawHref, baseUrl) : null;
 			if (href && children.trim()) {
 				return `[${children.trim()}](${href})`;
 			}
 			return children;
 		}
 		case 'img': {
-			const src = el.getAttribute('src');
+			const rawSrc = el.getAttribute('src');
+			// Idea 28: resolve relative src to absolute URL
+			const src = rawSrc ? resolveUrl(rawSrc, baseUrl) : null;
 			const alt = el.getAttribute('alt') || '';
 			if (src) return `![${alt}](${src})`;
 			return '';

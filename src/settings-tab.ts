@@ -7,6 +7,8 @@ import {
 	TextComponent,
 	TextAreaComponent,
 	ButtonComponent,
+	DropdownComponent,
+	setIcon,
 } from 'obsidian';
 import { ClipTemplate, TemplateProperty, WebClipperSettings, DEFAULT_TEMPLATE } from './types';
 import { generateTemplateId } from './template';
@@ -123,12 +125,15 @@ export class WebClipperSettingTab extends PluginSettingTab {
 		});
 		templateDesc.innerHTML = `
 			Templates define how clipped pages are formatted. Use <code>{{variable}}</code> placeholders.<br>
-			Available variables: <code>{{title}}</code>, <code>{{url}}</code>, <code>{{author}}</code>,
-			<code>{{description}}</code>, <code>{{ogImage}}</code>, <code>{{siteName}}</code>,
-			<code>{{publishedDate}}</code>, <code>{{content}}</code>, <code>{{date}}</code>, <code>{{time}}</code>
+			Available variables: <code>{{title}}</code>, <code>{{url}}</code>, <code>{{hostname}}</code>,
+			<code>{{author}}</code>, <code>{{description}}</code>, <code>{{ogImage}}</code>,
+			<code>{{siteName}}</code>, <code>{{publishedDate}}</code>, <code>{{tags}}</code>,
+			<code>{{content}}</code>, <code>{{wordCount}}</code>, <code>{{readingTime}}</code>,
+			<code>{{date}}</code>, <code>{{time}}</code><br>
+			Date/time support custom formats: <code>{{date:DD/MM/YYYY}}</code>, <code>{{time:HH:mm}}</code>
 		`;
 
-		// Add template / Import buttons
+		// Add template / Import / Export buttons
 		const templateActions = new Setting(containerEl);
 		templateActions.settingEl.addClass('web-clipper-template-actions');
 		templateActions
@@ -163,6 +168,19 @@ export class WebClipperSettingTab extends PluginSettingTab {
 						this.display();
 					}).open();
 				});
+			})
+			// Idea 2: Export templates to clipboard as JSON
+			.addButton((btn: ButtonComponent) => {
+				btn.setButtonText('Export Templates');
+				btn.onClick(async () => {
+					const json = JSON.stringify(this.plugin.settings.templates, null, 2);
+					try {
+						await navigator.clipboard.writeText(json);
+						new Notice('Templates copied to clipboard as JSON');
+					} catch {
+						new Notice('Could not copy to clipboard');
+					}
+				});
 			});
 
 		// Render template card grid
@@ -175,18 +193,11 @@ export class WebClipperSettingTab extends PluginSettingTab {
 	private renderTemplateCard(container: HTMLElement, index: number) {
 		const template = this.plugin.settings.templates[index];
 		const isDefault = template.id === this.plugin.settings.defaultTemplateId;
+		const total = this.plugin.settings.templates.length;
 
 		const card = container.createDiv({ cls: 'web-clipper-template-card' });
-		card.addEventListener('click', () => {
-			new TemplateEditModal(
-				this.app,
-				this.plugin,
-				index,
-				() => this.display()
-			).open();
-		});
 
-		// Card header with name and default badge
+		// Card header with name, default badge, and action buttons
 		const cardHeader = card.createDiv({ cls: 'web-clipper-card-header' });
 		cardHeader.createEl('span', {
 			text: template.name,
@@ -199,8 +210,77 @@ export class WebClipperSettingTab extends PluginSettingTab {
 			});
 		}
 
+		// Idea 10: Up / Down reorder buttons
+		const reorderBtns = cardHeader.createDiv({ cls: 'web-clipper-card-reorder' });
+
+		if (index > 0) {
+			const upBtn = reorderBtns.createEl('button', {
+				cls: 'web-clipper-card-icon-btn',
+				attr: { 'aria-label': 'Move template up' },
+			});
+			setIcon(upBtn, 'chevron-up');
+			upBtn.addEventListener('click', async (e) => {
+				e.stopPropagation();
+				const arr = this.plugin.settings.templates;
+				[arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		}
+
+		if (index < total - 1) {
+			const downBtn = reorderBtns.createEl('button', {
+				cls: 'web-clipper-card-icon-btn',
+				attr: { 'aria-label': 'Move template down' },
+			});
+			setIcon(downBtn, 'chevron-down');
+			downBtn.addEventListener('click', async (e) => {
+				e.stopPropagation();
+				const arr = this.plugin.settings.templates;
+				[arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		}
+
+		// Idea 3: Duplicate button
+		const dupBtn = reorderBtns.createEl('button', {
+			cls: 'web-clipper-card-icon-btn',
+			attr: { 'aria-label': 'Duplicate template' },
+		});
+		setIcon(dupBtn, 'copy');
+		dupBtn.addEventListener('click', async (e) => {
+			e.stopPropagation();
+			const dup: ClipTemplate = {
+				...JSON.parse(JSON.stringify(template)), // deep clone
+				id: generateTemplateId(),
+				name: `${template.name} (copy)`,
+			};
+			this.plugin.settings.templates.push(dup);
+			await this.plugin.saveSettings();
+			this.display();
+			// Open edit modal for the duplicate immediately
+			new TemplateEditModal(
+				this.app,
+				this.plugin,
+				this.plugin.settings.templates.length - 1,
+				() => this.display()
+			).open();
+		});
+
+		// Card body is clickable to open edit modal
+		const cardBody = card.createDiv({ cls: 'web-clipper-card-body' });
+		cardBody.addEventListener('click', () => {
+			new TemplateEditModal(
+				this.app,
+				this.plugin,
+				index,
+				() => this.display()
+			).open();
+		});
+
 		// Card details
-		const details = card.createDiv({ cls: 'web-clipper-card-details' });
+		const details = cardBody.createDiv({ cls: 'web-clipper-card-details' });
 
 		// Folder
 		const folder = template.folder || this.plugin.settings.defaultFolder;
@@ -313,6 +393,19 @@ class TemplateEditModal extends Modal {
 			});
 		urlPatternSetting.settingEl.addClass('web-clipper-textarea-setting');
 
+		// Idea 5: Content selector
+		new Setting(contentEl)
+			.setName('Content selector')
+			.setDesc('Optional CSS selector to override automatic content detection. E.g. article, .post-body')
+			.addText((text: TextComponent) => {
+				text.setPlaceholder('article, .post-body');
+				text.setValue(template.contentSelector ?? '');
+				text.onChange(async (value: string) => {
+					template.contentSelector = value.trim() || undefined;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		// Properties
 		const propsSection = contentEl.createDiv();
 		const propsHeading = new Setting(propsSection)
@@ -321,7 +414,7 @@ class TemplateEditModal extends Modal {
 		propsHeading.addButton((btn: ButtonComponent) => {
 			btn.setButtonText('+ Add Property');
 			btn.onClick(async () => {
-				template.properties.push({ name: 'new_property', value: '' });
+				template.properties.push({ name: 'new_property', value: '', type: 'text' });
 				await this.plugin.saveSettings();
 				// Re-render modal
 				contentEl.empty();
@@ -375,6 +468,7 @@ class TemplateEditModal extends Modal {
 		const prop = template.properties[propIndex];
 		const setting = new Setting(container);
 
+		// Property name
 		setting.addText((text: TextComponent) => {
 			text.setPlaceholder('property name');
 			text.setValue(prop.name);
@@ -384,6 +478,7 @@ class TemplateEditModal extends Modal {
 			});
 		});
 
+		// Property value
 		setting.addText((text: TextComponent) => {
 			text.setPlaceholder('{{variable}} or text');
 			text.setValue(prop.value);
@@ -393,6 +488,19 @@ class TemplateEditModal extends Modal {
 			});
 		});
 
+		// Idea 7: Property type dropdown (text vs list)
+		setting.addDropdown((dropdown: DropdownComponent) => {
+			dropdown.addOption('text', 'Text');
+			dropdown.addOption('list', 'List');
+			dropdown.setValue(prop.type ?? 'text');
+			dropdown.onChange(async (value: string) => {
+				prop.type = value as 'text' | 'list';
+				await this.plugin.saveSettings();
+			});
+			dropdown.selectEl.title = 'List renders as a YAML sequence (useful for tags)';
+		});
+
+		// Delete property
 		setting.addButton((btn: ButtonComponent) => {
 			btn.setIcon('trash');
 			btn.setTooltip('Remove property');

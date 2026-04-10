@@ -29,6 +29,7 @@ function makePage(overrides: Partial<ClippedPage> = {}): ClippedPage {
 		ogImage: 'https://example.com/image.jpg',
 		siteName: 'Example',
 		publishedDate: '2024-01-15',
+		tags: '',
 		content: 'Article body content',
 		rawHtml: '<html></html>',
 		...overrides,
@@ -145,6 +146,72 @@ describe('applyTemplate', () => {
 		const result = applyTemplate(template, page);
 		expect(result.body).toBe('{{unknown_var}}');
 	});
+
+	// Idea 1: date format tokens
+	it('formats date with a custom format token', () => {
+		const template = makeTemplate({ bodyTemplate: '{{date:DD/MM/YYYY}}' });
+		const result = applyTemplate(template, makePage());
+		expect(result.body).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+	});
+
+	it('formats time with a custom format token', () => {
+		const template = makeTemplate({ bodyTemplate: '{{time:HH:mm}}' });
+		const result = applyTemplate(template, makePage());
+		expect(result.body).toMatch(/^\d{2}:\d{2}$/);
+	});
+
+	// Idea 24: hostname variable
+	it('provides {{hostname}} stripped of www.', () => {
+		const template = makeTemplate({ bodyTemplate: '{{hostname}}' });
+		const page = makePage({ url: 'https://www.example.com/article' });
+		const result = applyTemplate(template, page);
+		expect(result.body).toBe('example.com');
+	});
+
+	// Idea 8: wordCount and readingTime
+	it('provides {{wordCount}} and {{readingTime}}', () => {
+		const words = Array(400).fill('word').join(' ');
+		const template = makeTemplate({
+			properties: [
+				{ name: 'wc', value: '{{wordCount}}' },
+				{ name: 'rt', value: '{{readingTime}}' },
+			],
+			bodyTemplate: '{{content}}',
+		});
+		const page = makePage({ content: words });
+		const result = applyTemplate(template, page);
+		expect(result.frontmatter.wc).toBe('400');
+		expect(result.frontmatter.rt).toBe('2'); // 400 / 200 = 2 min
+	});
+
+	it('returns readingTime of at least 1 for very short content', () => {
+		const template = makeTemplate({ bodyTemplate: '{{readingTime}}' });
+		const page = makePage({ content: 'short' });
+		const result = applyTemplate(template, page);
+		expect(Number(result.body)).toBeGreaterThanOrEqual(1);
+	});
+
+	// Idea 9: tags variable
+	it('provides {{tags}} variable from page tags', () => {
+		const template = makeTemplate({ bodyTemplate: '{{tags}}' });
+		const page = makePage({ tags: 'news, technology' });
+		const result = applyTemplate(template, page);
+		expect(result.body).toBe('news, technology');
+	});
+
+	// Idea 7: list-type properties
+	it('tracks list-type properties in listProperties', () => {
+		const template = makeTemplate({
+			properties: [
+				{ name: 'source', value: '{{url}}', type: 'text' },
+				{ name: 'tags', value: '{{tags}}', type: 'list' },
+			],
+		});
+		const page = makePage({ tags: 'a, b' });
+		const result = applyTemplate(template, page);
+		expect(result.listProperties).toContain('tags');
+		expect(result.listProperties).not.toContain('source');
+	});
 });
 
 describe('generateNoteContent', () => {
@@ -159,7 +226,7 @@ describe('generateNoteContent', () => {
 		expect(result).toContain('Hello world');
 	});
 
-	it('quotes values containing colons', () => {
+	it('quotes values containing colons (URLs)', () => {
 		const result = generateNoteContent({ url: 'https://example.com' }, '');
 		expect(result).toContain('url: "https://example.com"');
 	});
@@ -177,6 +244,44 @@ describe('generateNoteContent', () => {
 	it('produces valid structure with empty frontmatter', () => {
 		const result = generateNoteContent({}, 'body text');
 		expect(result).toBe('---\n---\n\nbody text');
+	});
+
+	// Idea 4: improved YAML escaping
+	it('quotes YAML boolean keywords as strings', () => {
+		const result = generateNoteContent({ published: 'true' }, '');
+		expect(result).toContain('published: "true"');
+	});
+
+	it('quotes values that start with a digit', () => {
+		const result = generateNoteContent({ year: '2024' }, '');
+		expect(result).toContain('year: "2024"');
+	});
+
+	it('uses literal block scalar for multi-line values', () => {
+		const result = generateNoteContent({ desc: 'line one\nline two' }, '');
+		expect(result).toContain('desc: |');
+		expect(result).toContain('  line one');
+		expect(result).toContain('  line two');
+	});
+
+	// Idea 7: list-type properties
+	it('renders list-type properties as YAML sequences', () => {
+		const result = generateNoteContent(
+			{ tags: 'news, technology, obsidian' },
+			'body',
+			['tags']
+		);
+		expect(result).toContain('tags:');
+		expect(result).toContain('  - news');
+		expect(result).toContain('  - technology');
+		expect(result).toContain('  - obsidian');
+		// Must NOT appear as a plain scalar
+		expect(result).not.toContain('tags: news');
+	});
+
+	it('skips list-type property when value is empty', () => {
+		const result = generateNoteContent({ tags: '' }, 'body', ['tags']);
+		expect(result).not.toContain('tags');
 	});
 });
 

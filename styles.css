@@ -137,6 +137,45 @@
 	margin-bottom: var(--size-4-3);
 }
 
+/* Reorder/duplicate icon buttons in card header */
+.web-clipper-card-reorder {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.web-clipper-card-icon-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	border-radius: var(--radius-s);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: color 0.1s ease, background-color 0.1s ease;
+}
+
+.web-clipper-card-icon-btn:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.web-clipper-card-icon-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Card body (the clickable area) */
+.web-clipper-card-body {
+	cursor: pointer;
+}
+
 .web-clipper-card-name {
 	font-size: var(--font-ui-medium);
 	font-weight: var(--font-semibold);

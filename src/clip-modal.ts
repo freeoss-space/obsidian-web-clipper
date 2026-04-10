@@ -6,7 +6,6 @@ import {
 	Setting,
 	Notice,
 	TFolder,
-	ToggleComponent,
 	normalizePath,
 	DropdownComponent,
 	TextComponent,
@@ -15,6 +14,7 @@ import {
 } from 'obsidian';
 import { ClipTemplate, ClippedPage, WebClipperSettings } from './types';
 import { applyTemplate, generateNoteContent, findMatchingTemplate } from './template';
+import { extractContentWithSelector } from './parser';
 
 export class ClipModal extends Modal {
 	private page: ClippedPage;
@@ -24,6 +24,7 @@ export class ClipModal extends Modal {
 	private filename: string;
 	private frontmatter: Record<string, string>;
 	private bodyContent: string;
+	private listProperties: string[];
 	private onSave: (settings: WebClipperSettings) => void;
 
 	// UI components for live updates
@@ -49,11 +50,30 @@ export class ClipModal extends Modal {
 			settings.defaultTemplateId
 		);
 
-		const applied = applyTemplate(this.selectedTemplate, page);
+		const applied = applyTemplate(this.selectedTemplate, this.applyContentSelector(this.selectedTemplate));
 		this.filename = applied.filename;
 		this.frontmatter = applied.frontmatter;
 		this.bodyContent = applied.body;
+		this.listProperties = applied.listProperties;
 		this.folder = this.selectedTemplate.folder || settings.defaultFolder;
+	}
+
+	/**
+	 * Idea 5: return a version of `page` with content re-extracted using the
+	 * template's custom CSS selector (if any).
+	 */
+	private applyContentSelector(template: ClipTemplate): ClippedPage {
+		if (template.contentSelector && this.page.rawHtml) {
+			return {
+				...this.page,
+				content: extractContentWithSelector(
+					this.page.rawHtml,
+					this.page.url,
+					template.contentSelector
+				),
+			};
+		}
+		return this.page;
 	}
 
 	onOpen() {
@@ -109,10 +129,13 @@ export class ClipModal extends Modal {
 					const template = this.settings.templates.find(t => t.id === value);
 					if (template) {
 						this.selectedTemplate = template;
-						const applied = applyTemplate(template, this.page);
+						// Idea 5: re-extract content with template's content selector
+						const pageForTemplate = this.applyContentSelector(template);
+						const applied = applyTemplate(template, pageForTemplate);
 						this.filename = applied.filename;
 						this.frontmatter = applied.frontmatter;
 						this.bodyContent = applied.body;
+						this.listProperties = applied.listProperties;
 						this.folder = template.folder || this.settings.defaultFolder;
 						this.refreshFields();
 					}
@@ -215,6 +238,7 @@ export class ClipModal extends Modal {
 						this.bodyContent,
 						this.folder,
 						this.filename,
+						this.listProperties,
 						this.settings,
 						this.onSave
 					).open();
@@ -257,6 +281,7 @@ class ClipPreviewModal extends Modal {
 	private bodyContent: string;
 	private folder: string;
 	private filename: string;
+	private listProperties: string[];
 	private settings: WebClipperSettings;
 	private onSave: (settings: WebClipperSettings) => void;
 	private renderComponent: Component;
@@ -267,6 +292,7 @@ class ClipPreviewModal extends Modal {
 		bodyContent: string,
 		folder: string,
 		filename: string,
+		listProperties: string[],
 		settings: WebClipperSettings,
 		onSave: (settings: WebClipperSettings) => void
 	) {
@@ -275,6 +301,7 @@ class ClipPreviewModal extends Modal {
 		this.bodyContent = bodyContent;
 		this.folder = folder;
 		this.filename = filename;
+		this.listProperties = listProperties;
 		this.settings = settings;
 		this.onSave = onSave;
 		this.renderComponent = new Component();
@@ -295,7 +322,7 @@ class ClipPreviewModal extends Modal {
 
 		// Rendered preview
 		const previewContainer = contentEl.createDiv({ cls: 'web-clipper-preview' });
-		const content = generateNoteContent(this.frontmatter, this.bodyContent);
+		const content = generateNoteContent(this.frontmatter, this.bodyContent, this.listProperties);
 		this.renderComponent.load();
 		MarkdownRenderer.render(
 			this.app,
@@ -321,7 +348,7 @@ class ClipPreviewModal extends Modal {
 
 	private async saveNote() {
 		try {
-			const content = generateNoteContent(this.frontmatter, this.bodyContent);
+			const content = generateNoteContent(this.frontmatter, this.bodyContent, this.listProperties);
 			const folderPath = normalizePath(this.folder);
 			const filePath = normalizePath(`${folderPath}/${this.filename}.md`);
 
